@@ -390,19 +390,6 @@ except Exception as e:
     st.markdown("Please contact your system administrator.")
     st.stop()
 
-# Professional info card
-st.markdown("""
-<div class="info-card">
-    <h3>System Overview</h3>
-    <p>This platform provides secure, automated export of financial transaction data from Ramp to Business Central General Journal format.</p>
-    <ul>
-        <li>Secure Microsoft Azure AD authentication</li>
-        <li>Real-time API integration with Ramp financial platform</li>
-        <li>Business Central-compatible export formats (Excel, CSV)</li>
-        <li>Support for multiple transaction types and date ranges</li>
-    </ul>
-</div>
-""", unsafe_allow_html=True)
 
 # Post-export sync options (defined before tabs so other panels can reference safely)
 st.sidebar.markdown("")
@@ -1015,7 +1002,11 @@ with st.sidebar.expander('📄 Latest Card Statement', expanded=True):
 
 # Note: Per-tab controls
 st.sidebar.markdown("**Per-tab controls**")
-st.sidebar.info("Date ranges, export generation, and downloads are now managed in each export tab (Credit Cards, Invoices, Reimbursements). Use the relevant tab to preview, generate, and download exports.")
+st.sidebar.info("Date ranges, export generation, and downloads are managed in each export tab (Credit Cards, Invoices, Reimbursements). Use the relevant tab to preview, generate, and download exports.")
+
+# System Overview (compact sidebar version)
+st.sidebar.markdown("### System Overview")
+st.sidebar.markdown("- **Secure Microsoft Azure AD authentication**\n- **Real-time API integration with Ramp**\n- **Business Central-compatible exports (CSV, Excel)**\n- **Per-tab previews and dry-run-first export flows**")
 
 
 def run_export(selected_types, start_date, end_date, cfg, env):
