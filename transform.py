@@ -994,6 +994,9 @@ def ramp_bills_to_general_journal(bills: List[Dict[str, Any]], cfg: Dict[str, An
                     'Credit Amount': 0.0,
                 })
 
+    # Build DataFrame from accumulated rows
+    df = pd.DataFrame(rows)
+
     # Add extra columns from provided template, fill with sensible defaults or totals
     extra_cols = [
         'Sustainability Account No.', 'Total Emission CO2', 'Total Emission CH4', 'Total Emission N2O',
@@ -1003,6 +1006,10 @@ def ramp_bills_to_general_journal(bills: List[Dict[str, Any]], cfg: Dict[str, An
 
     for c in extra_cols:
         df[c] = ''
+
+    # Compute simple aggregates
+    number_of_records = len(df)
+    total_balance = df['Debit Amount'].fillna(0).sum() - df['Credit Amount'].fillna(0).sum()
 
     # Populate aggregate and per-row summary fields
     df['NumberOfJournalRecords'] = number_of_records

@@ -570,6 +570,15 @@ with inv_tab:
                     # Filter out already-synced for preview too
                     bills_preview = [b for b in bills if not client.is_transaction_synced(b)]
 
+                    # Enrich bills with vendor external ids from the Vendors API so
+                    # 'Buy-from Vendor No.' is populated from vendor.external_id (authoritative)
+                    try:
+                        from transform import enrich_bills_with_vendor_external_ids
+                        bills_preview = enrich_bills_with_vendor_external_ids(bills_preview, client)
+                    except Exception:
+                        # If enrichment fails, continue with best-effort fallback values
+                        pass
+
                     pi_df = ramp_bills_to_purchase_invoice_lines(bills_preview, cfg)
                     gj_df = ramp_bills_to_general_journal(bills_preview, cfg)
 
@@ -649,6 +658,14 @@ with inv_tab:
                 skipped = before - after
                 if skipped:
                     st.info(f"Skipped {skipped} bills already marked synced in Ramp")
+
+                # Enrich bills with vendor external ids from Vendors API to populate
+                # Buy-from Vendor No. (prefer vendor.external_vendor_id_resolved)
+                try:
+                    from transform import enrich_bills_with_vendor_external_ids
+                    bills = enrich_bills_with_vendor_external_ids(bills, client)
+                except Exception:
+                    pass
 
                 # Run transforms
                 pi_df = ramp_bills_to_purchase_invoice_lines(bills, cfg)
@@ -1412,6 +1429,13 @@ if st.sidebar.button("Export Purchase Invoices (BC CSV)", use_container_width=Tr
             after = len(bills)
             if after < before:
                 st.info(f"Skipped {before-after} bills already marked synced in Ramp")
+
+            # Enrich bills with vendor external ids from Vendors API to populate Buy-from Vendor No.
+            try:
+                from transform import enrich_bills_with_vendor_external_ids
+                bills = enrich_bills_with_vendor_external_ids(bills, client)
+            except Exception:
+                pass
 
             # Run transforms
             pi_df = ramp_bills_to_purchase_invoice_lines(bills, cfg)
