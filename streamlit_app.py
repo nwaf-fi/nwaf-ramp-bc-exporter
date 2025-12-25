@@ -404,6 +404,19 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# Post-export sync options (defined before tabs so other panels can reference safely)
+st.sidebar.markdown("")
+mark_transactions_after_export = st.sidebar.checkbox(
+    "Mark exported transactions in Ramp as synced",
+    value=False,
+    help="If checked, the app will mark exported transactions as synced in Ramp. This is a dry-run unless 'Enable live Ramp sync' is checked."
+)
+enable_live_ramp_sync = st.sidebar.checkbox(
+    "Enable live Ramp sync (will POST to Ramp)",
+    value=False,
+    help="Enable sending a request to Ramp to mark transactions as synced. Requires accounting:write scope and should be used cautiously."
+)
+
 # --- New: Tabbed exports panel (Credit Cards, Invoices, Reimbursements) ---
 st.markdown("---")
 st.header("Exports by Type")
@@ -437,7 +450,7 @@ with cc_tab:
                     token_url=cfg['ramp']['token_url'],
                     client_id=env['RAMP_CLIENT_ID'],
                     client_secret=env['RAMP_CLIENT_SECRET'],
-                    enable_sync=enable_live_ramp_sync
+                    enable_sync=st.session_state.get('enable_live_ramp_sync', False)
                 )
                 client.authenticate()
 
@@ -532,7 +545,7 @@ with inv_tab:
                     token_url=cfg['ramp']['token_url'],
                     client_id=env['RAMP_CLIENT_ID'],
                     client_secret=env['RAMP_CLIENT_SECRET'],
-                    enable_sync=enable_live_ramp_sync
+                    enable_sync=st.session_state.get('enable_live_ramp_sync', False)
                 )
                 client.authenticate()
                 start_date_str = start_date.strftime('%Y-%m-%d')
@@ -637,7 +650,7 @@ with inv_tab:
 
                     successes = sum(1 for r in results if r['ok'])
                     failures = len(results) - successes
-                    if enable_live_ramp_sync:
+                    if st.session_state.get('enable_live_ramp_sync', False):
                         st.success(f"Ramp sync complete: {successes} succeeded, {failures} failed.")
                     else:
                         st.info(f"Dry run complete: {successes} would be marked synced (no live requests were sent).")
@@ -660,7 +673,7 @@ with reimb_tab:
                     token_url=cfg['ramp']['token_url'],
                     client_id=env['RAMP_CLIENT_ID'],
                     client_secret=env['RAMP_CLIENT_SECRET'],
-                    enable_sync=enable_live_ramp_sync
+                    enable_sync=st.session_state.get('enable_live_ramp_sync', False)
                 )
                 client.authenticate()
                 start_date_str = start_date.strftime('%Y-%m-%d')
@@ -742,7 +755,7 @@ with reimb_tab:
 
                     successes = sum(1 for res in results if res['ok'])
                     failures = len(results) - successes
-                    if enable_live_ramp_sync:
+                    if st.session_state.get('enable_live_ramp_sync', False):
                         st.success(f"Ramp sync complete: {successes} succeeded, {failures} failed.")
                     else:
                         st.info(f"Dry run complete: {successes} would be marked synced (no live requests were sent).")
@@ -828,18 +841,6 @@ for key, label in data_types.items():
     if st.sidebar.checkbox(label, value=True, key=f"checkbox_{key}"):
         selected_types.append(key)
 
-# Post-export sync options
-st.sidebar.markdown("")
-mark_transactions_after_export = st.sidebar.checkbox(
-    "Mark exported transactions in Ramp as synced",
-    value=False,
-    help="If checked, the app will mark exported transactions as synced in Ramp. This is a dry-run unless 'Enable live Ramp sync' is checked."
-)
-enable_live_ramp_sync = st.sidebar.checkbox(
-    "Enable live Ramp sync (will POST to Ramp)",
-    value=False,
-    help="Enable sending a request to Ramp to mark transactions as synced. Requires accounting:write scope and should be used cautiously."
-)
 
 def run_export(selected_types, start_date, end_date, cfg, env):
     """Run the export process and display results"""
@@ -851,7 +852,7 @@ def run_export(selected_types, start_date, end_date, cfg, env):
                 token_url=cfg['ramp']['token_url'],
                 client_id=env['RAMP_CLIENT_ID'],
                 client_secret=env['RAMP_CLIENT_SECRET'],
-                enable_sync=enable_live_ramp_sync
+                enable_sync=st.session_state.get('enable_live_ramp_sync', False)
             )
             client.authenticate()
             st.success("Authentication successful")
@@ -988,7 +989,7 @@ def run_export(selected_types, start_date, end_date, cfg, env):
             successes = sum(1 for r in results if r['ok'])
             failures = len(results) - successes
 
-            if enable_live_ramp_sync:
+            if st.session_state.get('enable_live_ramp_sync', False):
                 st.success(f"Ramp sync complete: {successes} succeeded, {failures} failed.")
             else:
                 st.info(f"Dry run complete: {successes} would be marked synced (no live requests were sent).")
@@ -1019,7 +1020,7 @@ def run_export(selected_types, start_date, end_date, cfg, env):
         successes = sum(1 for r in results if r['ok'])
         failures = len(results) - successes
 
-        if enable_live_ramp_sync:
+        if st.session_state.get('enable_live_ramp_sync', False):
             st.success(f"Ramp sync complete: {successes} succeeded, {failures} failed.")
         else:
             st.info(f"Dry run complete: {successes} would be marked synced (no live requests were sent).")
@@ -1204,7 +1205,7 @@ if st.sidebar.button("Export Purchase Invoices (BC CSV)", use_container_width=Tr
                     token_url=cfg['ramp']['token_url'],
                     client_id=env['RAMP_CLIENT_ID'],
                     client_secret=env['RAMP_CLIENT_SECRET'],
-                    enable_sync=enable_live_ramp_sync
+                    enable_sync=st.session_state.get('enable_live_ramp_sync', False)
                 )
                 client.authenticate()
                 st.success("Authentication successful")
