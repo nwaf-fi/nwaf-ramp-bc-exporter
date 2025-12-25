@@ -544,6 +544,72 @@ with inv_tab:
     include_audit = st.checkbox("Write audit NDJSON (export original bill objects)", value=False, key='pi_include_audit')
     confirm_mark = st.checkbox("I confirm: mark exported bills as synced (requires confirmation below)", value=False, key='pi_confirm_mark')
 
+    # Offer a non-destructive preview that mirrors the 'Generate' behavior but does not cache or mark
+    if st.button("Preview Purchase Invoices for date range", key='preview_pi_btn'):
+        with st.spinner("Fetching bills for preview..."):
+            try:
+                client = RampClient(
+                    base_url=cfg['ramp']['base_url'],
+                    token_url=cfg['ramp']['token_url'],
+                    client_id=env['RAMP_CLIENT_ID'],
+                    client_secret=env['RAMP_CLIENT_SECRET'],
+                    enable_sync=False
+                )
+                client.authenticate()
+
+                start_date_str = inv_start.strftime('%Y-%m-%d')
+                end_date_str = inv_end.strftime('%Y-%m-%d')
+
+                bills = client.get_bills(status='APPROVED', start_date=start_date_str, end_date=end_date_str, page_size=cfg['ramp'].get('page_size', 200))
+                total_bills = len(bills) if isinstance(bills, list) else 0
+                if not bills:
+                    st.info('No approved bills found for the specified period.')
+                else:
+                    st.success(f"Retrieved {total_bills} bills (preview)")
+
+                    # Filter out already-synced for preview too
+                    bills_preview = [b for b in bills if not client.is_transaction_synced(b)]
+
+                    pi_df = ramp_bills_to_purchase_invoice_lines(bills_preview, cfg)
+                    gj_df = ramp_bills_to_general_journal(bills_preview, cfg)
+
+                    bill_total = 0.0
+                    for b in bills_preview:
+                        amt = b.get('amount') or b.get('total') or {}
+                        if isinstance(amt, dict):
+                            bill_total += (amt.get('amount', 0) / amt.get('minor_unit_conversion_rate', 100))
+                        else:
+                            try:
+                                bill_total += float(amt)
+                            except Exception:
+                                pass
+
+                    pi_total = pi_df['Amount'].sum() if pi_df is not None and not pi_df.empty and 'Amount' in pi_df.columns else 0.0
+
+                    st.write(f"Bills count after filtering: **{len(bills_preview)}**  — Total amount: **${bill_total:,.2f}**")
+                    st.write(f"Purchase Invoice lines total (preview): **${pi_total:,.2f}**")
+
+                    st.subheader("Preview - Purchase Invoice (first 10 rows)")
+                    if pi_df is None or pi_df.empty:
+                        st.info("No purchase invoice rows generated. Check mapping and bill line items.")
+                    else:
+                        st.dataframe(pi_df.head(10), use_container_width=True)
+
+                    st.subheader("Preview - General Journal (first 10 rows)")
+                    if gj_df is None or gj_df.empty:
+                        st.info("No general journal rows generated.")
+                    else:
+                        st.dataframe(gj_df.head(10), use_container_width=True)
+
+            except Exception as e:
+                import traceback
+                tb = traceback.format_exc()
+                st.error("Error during preview. See details below.")
+                with st.expander("Preview error details (expand for stack trace)"):
+                    st.code(tb)
+                import logging
+                logging.exception("Preview error: %s", tb)
+
     # Clear previous cached results when date range changes
     if st.session_state.get('inv_start') != inv_start or st.session_state.get('inv_end') != inv_end:
         st.session_state.pop('inv_bills', None)
@@ -717,6 +783,69 @@ with reimb_tab:
 
     include_audit = st.checkbox("Write reimbursements audit NDJSON (export original objects)", value=False, key='reim_include_audit')
     mark_synced = st.checkbox("Mark exported reimbursements as synced in Ramp (dry-run unless live sync enabled)", value=False, key='reim_mark_synced')
+
+    # Add preview action for reimbursements (non-destructive)
+    if st.button("Preview Reimbursements for date range", key='preview_reim_btn'):
+        with st.spinner("Fetching reimbursements for preview..."):
+            try:
+                client = RampClient(
+                    base_url=cfg['ramp']['base_url'],
+                    token_url=cfg['ramp']['token_url'],
+                    client_id=env['RAMP_CLIENT_ID'],
+                    client_secret=env['RAMP_CLIENT_SECRET'],
+                    enable_sync=False
+                )
+                client.authenticate()
+                start_date_str = start_date.strftime('%Y-%m-%d')
+                end_date_str = end_date.strftime('%Y-%m-%d')
+                reims = client.get_reimbursements(status='PAID', start_date=start_date_str, end_date=end_date_str, page_size=cfg['ramp'].get('page_size', 200))
+
+                if not reims:
+                    st.info('No reimbursements found for the specified period.')
+                else:
+                    st.success(f"Retrieved {len(reims)} reimbursements (preview)")
+
+                    # Filter already-synced
+                    reims_preview = [r for r in reims if not client.is_transaction_synced(r)]
+
+                    r_df = ramp_reimbursements_to_bc_rows(reims_preview, cfg)
+
+                    # totals
+                    reim_total = 0.0
+                    for r in reims_preview:
+                        amt = r.get('amount') or r.get('total') or {}
+                        if isinstance(amt, dict):
+                            reim_total += (amt.get('amount', 0) / amt.get('minor_unit_conversion_rate', 100))
+                        else:
+                            try:
+                                reim_total += float(amt)
+                            except Exception:
+                                pass
+
+                    rdf_total = r_df['Debit Amount'].sum() if r_df is not None and not r_df.empty and 'Debit Amount' in r_df.columns else 0.0
+                    st.write(f"Reimbursements count after filtering: **{len(reims_preview)}**  — Total amount: **${reim_total:,.2f}**")
+                    st.write(f"Reimbursement journal debit total (preview): **${rdf_total:,.2f}**")
+
+                    st.subheader("Preview - Reimbursements (first 10 rows)")
+                    if r_df is None or r_df.empty:
+                        st.info('No reimbursement rows generated. Check mapping and data.')
+                    else:
+                        st.dataframe(r_df.head(10), use_container_width=True)
+
+                    # Provide downloads
+                    if r_df is not None and not r_df.empty:
+                        csv_bytes = r_df.to_csv(index=False).encode('utf-8')
+                        fname = f"reimbursements_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
+                        st.download_button("Download Reimbursements CSV (preview)", data=csv_bytes, file_name=fname, mime='text/csv')
+
+            except Exception as e:
+                import traceback
+                tb = traceback.format_exc()
+                st.error("Error during preview. See details below.")
+                with st.expander("Preview error details (expand for stack trace)"):
+                    st.code(tb)
+                import logging
+                logging.exception("Preview error: %s", tb)
 
     if st.button("Generate Reimbursements for date range"):
         with st.spinner("Fetching reimbursements and preparing export..."):
