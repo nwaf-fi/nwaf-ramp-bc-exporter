@@ -11,11 +11,18 @@ page_size = 200
 # --- !!! YOU MUST UPDATE THESE ACCOUNTS !!! ---
 ramp_card_account = "26100" # Ramp Credit Card Liability G/L Account No. in BC
 bank_account = "11005" # Your Actual Bank G/L Account No. in BC for payments
-vendor_payable_account = "20000" # Vendor payable suspense account
+vendor_payable_account = "26000" # Vendor payable suspense account
 employee_receivable_account = "13000" # Employee receivable account
 other_income_account = "40000" # Other income account for cashbacks
 template_name = "GENERAL"
 batch_name = "RAMP_IMPORT"
+
+# Optional vendor -> default expense account mapping. Keys should be the vendor lookup
+# value (e.g. external vendor id as populated into Buy-from Vendor No.).
+# Example:
+# [business_central.vendor_expense_map]
+[business_central.vendor_expense_map]
+PARAM001 = "54010"
 
 [gl_mapping]
 # --- !!! CRITICAL: UPDATE THIS KEY !!! ---

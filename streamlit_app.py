@@ -5,6 +5,8 @@ from io import BytesIO
 import sys
 import os
 import streamlit.components.v1 as components
+import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Page configuration must be the first Streamlit command in the script
 st.set_page_config(
@@ -340,7 +342,8 @@ from utils import load_env, load_config
 from ramp_client import RampClient
 from transform import (ramp_credit_card_to_bc_rows, ramp_bills_to_bc_rows,
                       ramp_reimbursements_to_bc_rows, ramp_cashbacks_to_bc_rows,
-                      ramp_statements_to_bc_rows)
+                      ramp_statements_to_bc_rows, ramp_bills_to_purchase_invoice_lines,
+                      ramp_bills_to_general_journal)
 from bc_export import export
 
 # Load institutional stylesheet
@@ -401,8 +404,395 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# --- New: Tabbed exports panel (Credit Cards, Invoices, Reimbursements) ---
+st.markdown("---")
+st.header("Exports by Type")
+cc_tab, inv_tab, reimb_tab = st.tabs(["Credit Cards", "Invoices", "Reimbursements"])
+
+# Helper: amount extractor for statement objects
+def _extract_amount(amount_obj):
+    if isinstance(amount_obj, dict):
+        minor = amount_obj.get('amount', 0)
+        conv = amount_obj.get('minor_unit_conversion_rate', 100)
+        try:
+            return float(minor) / float(conv) if conv else float(minor)
+        except Exception:
+            return 0.0
+    try:
+        return float(amount_obj or 0.0)
+    except Exception:
+        return 0.0
+
+with cc_tab:
+    st.subheader("Credit Card Statement Export")
+    st.write("This panel automatically fetches the latest card statement and prepares a Business Central journal CSV for download.")
+
+    auto_fetch = True  # per UX requirement: automatically fetch latest statement on render
+
+    if auto_fetch:
+        with st.spinner("Authenticating and fetching latest statement..."):
+            try:
+                client = RampClient(
+                    base_url=cfg['ramp']['base_url'],
+                    token_url=cfg['ramp']['token_url'],
+                    client_id=env['RAMP_CLIENT_ID'],
+                    client_secret=env['RAMP_CLIENT_SECRET'],
+                    enable_sync=enable_live_ramp_sync
+                )
+                client.authenticate()
+
+                stmts = client.get_statements()
+                if not stmts:
+                    st.info("No statements found for this account")
+                else:
+                    latest_stmt = stmts[0]
+                    s = (latest_stmt.get('start_date') or '')[:10]
+                    e = (latest_stmt.get('end_date') or '')[:10]
+                    st.markdown(f"**Statement period:** {s} → {e}")
+
+                    # Get authoritative statement totals (try charges -> balance_sections -> ending_balance)
+                    stmt_charges = _extract_amount(latest_stmt.get('charges') or {})
+                    if not stmt_charges:
+                        # try balance_sections
+                        bsecs = latest_stmt.get('balance_sections') or []
+                        if bsecs:
+                            stmt_charges = _extract_amount(bsecs[0].get('charges') or {})
+                    st.write(f"Statement charges (major units): **${stmt_charges:,.2f}**")
+
+                    # Collect CARD_TRANSACTION ids from statement_lines
+                    lines = latest_stmt.get('statement_lines') or []
+                    card_ids = [l.get('id') for l in lines if l.get('type') == 'CARD_TRANSACTION']
+                    st.write(f"Statement transaction count: **{len(card_ids)}**")
+
+                    # Fetch each transaction by id (authoritative) — use concurrency for speed
+                    fetched = []
+                    failures = []
+                    if card_ids:
+                        max_workers = min(12, max(4, len(card_ids)))
+                        with st.spinner(f"Fetching {len(card_ids)} transactions (concurrent, workers={max_workers})..."):
+                            with ThreadPoolExecutor(max_workers=max_workers) as ex:
+                                futures = {ex.submit(client.session.get, f"{client.base_url}/transactions/{tid}", timeout=15): tid for tid in card_ids}
+                                for fut in as_completed(futures):
+                                    tid = futures[fut]
+                                    try:
+                                        resp = fut.result()
+                                        if resp.status_code == 200:
+                                            fetched.append(resp.json())
+                                        else:
+                                            failures.append((tid, resp.status_code))
+                                    except Exception as exc:
+                                        failures.append((tid, str(exc)))
+
+                    tx_total = sum(_extract_amount(t.get('amount')) for t in fetched)
+                    st.write(f"Transactions total (sum of amounts): **${tx_total:,.2f}**")
+                    if failures:
+                        st.warning(f"{len(failures)} transactions failed to fetch (see logs).")
+
+                    strict_mode = st.checkbox("Abort export if totals mismatch (strict)", value=False, help="When enabled, the export will be disabled if statement total does not match transaction sum.")
+                    mismatch = abs(stmt_charges - tx_total) > 0.01
+                    if mismatch:
+                        st.warning("Statement total does not match the transaction total.")
+                        if strict_mode:
+                            st.error("Strict mode enabled: export disabled due to totals mismatch.")
+
+                    # Prepare transactions for transform (force posting date to accounting_date)
+                    for t in fetched:
+                        if t.get('accounting_date'):
+                            t['payment_date'] = t.get('accounting_date')
+
+                    df = ramp_credit_card_to_bc_rows(fetched, cfg, write_audit=False)
+
+                    st.subheader("Preview (first 10 rows)")
+                    if df is None or df.empty:
+                        st.info("No credit-card rows generated. Check mapping or that transactions are fully coded with GL accounts.")
+                    else:
+                        st.dataframe(df.head(10), use_container_width=True)
+
+                    # Provide download button (disable when strict and mismatch)
+                    if df is not None and not df.empty and (not (strict_mode and mismatch)):
+                        csv_bytes = df.to_csv(index=False).encode('utf-8')
+                        fname = f"v2_cc_statement_journal_{s.replace('-', '')}_{e.replace('-', '')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
+                        st.download_button("Download CC Journal (Latest Statement)", data=csv_bytes, file_name=fname, mime='text/csv')
+
+            except Exception as ex:
+                st.error(f"Error fetching statement: {ex}")
+
+with inv_tab:
+    st.subheader("Purchase Invoice Export (Bills)")
+    st.write("Generate Purchase Invoices CSV from approved Ramp bills in the selected date range.")
+
+    include_audit = st.checkbox("Write audit NDJSON (export original bill objects)", value=False, key='pi_include_audit')
+    mark_synced = st.checkbox("Mark exported bills as synced in Ramp (dry-run unless live sync enabled)", value=False, key='pi_mark_synced')
+
+    if st.button("Generate Purchase Invoices for date range"):
+        with st.spinner("Fetching bills and preparing export..."):
+            try:
+                client = RampClient(
+                    base_url=cfg['ramp']['base_url'],
+                    token_url=cfg['ramp']['token_url'],
+                    client_id=env['RAMP_CLIENT_ID'],
+                    client_secret=env['RAMP_CLIENT_SECRET'],
+                    enable_sync=enable_live_ramp_sync
+                )
+                client.authenticate()
+                start_date_str = start_date.strftime('%Y-%m-%d')
+                end_date_str = end_date.strftime('%Y-%m-%d')
+                bills = client.get_bills(status='APPROVED', start_date=start_date_str, end_date=end_date_str, page_size=cfg['ramp'].get('page_size', 200))
+                total_bills = len(bills) if isinstance(bills, list) else 0
+                if not bills:
+                    st.info('No approved bills found for the specified period.')
+                    st.stop()
+
+                st.success(f"Retrieved {total_bills} bills (pre-filter)")
+
+                # Remove already-synced bills if possible
+                before = len(bills)
+                bills = [b for b in bills if not client.is_transaction_synced(b)]
+                after = len(bills)
+                skipped = before - after
+                if skipped:
+                    st.info(f"Skipped {skipped} bills already marked synced in Ramp")
+
+                # Run transforms
+                pi_df = ramp_bills_to_purchase_invoice_lines(bills, cfg)
+                gj_df = ramp_bills_to_general_journal(bills, cfg)
+
+                # Totals diagnostics
+                bill_total = 0.0
+                for b in bills:
+                    amt = b.get('amount') or b.get('total') or {}
+                    if isinstance(amt, dict):
+                        bill_total += (amt.get('amount', 0) / amt.get('minor_unit_conversion_rate', 100))
+                    else:
+                        try:
+                            bill_total += float(amt)
+                        except Exception:
+                            pass
+
+                pi_total = pi_df['Amount'].sum() if pi_df is not None and not pi_df.empty and 'Amount' in pi_df.columns else 0.0
+
+                st.write(f"Bills count after filtering: **{len(bills)}**  — Total amount: **${bill_total:,.2f}**")
+                st.write(f"Purchase Invoice lines total: **${pi_total:,.2f}**")
+
+                st.subheader("Purchase Invoice Preview (first 10 rows)")
+                if pi_df is None or pi_df.empty:
+                    st.info("No purchase invoice rows generated. Check mapping and bill line items.")
+                else:
+                    st.dataframe(pi_df.head(10), use_container_width=True)
+
+                st.subheader("General Journal Preview (first 10 rows)")
+                if gj_df is None or gj_df.empty:
+                    st.info("No general journal rows generated.")
+                else:
+                    st.dataframe(gj_df.head(10), use_container_width=True)
+
+                # Provide downloads (CSV & Excel)
+                if pi_df is not None and not pi_df.empty:
+                    csv_bytes = pi_df.to_csv(index=False).encode('utf-8')
+                    fname = f"purchase_invoices_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
+                    st.download_button("Download Purchase Invoices CSV", data=csv_bytes, file_name=fname, mime='text/csv')
+
+                    # Excel
+                    excel_buf = BytesIO()
+                    with pd.ExcelWriter(excel_buf, engine='openpyxl') as writer:
+                        pi_df.to_excel(writer, sheet_name='PurchaseInvoices', index=False)
+                    excel_buf.seek(0)
+                    fname_x = fname.replace('.csv', '.xlsx')
+                    st.download_button("Download Purchase Invoices Excel", data=excel_buf, file_name=fname_x, mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+                # General Journal
+                if gj_df is not None and not gj_df.empty:
+                    gj_csv = gj_df.to_csv(index=False).encode('utf-8')
+                    gj_name = f"purchase_invoices_journal_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
+                    st.download_button("Download Purchase Invoices General Journal CSV", data=gj_csv, file_name=gj_name, mime='text/csv')
+
+                # Optional audit NDJSON (write only when user requests)
+                if include_audit:
+                    ts = datetime.now().strftime('%Y%m%dT%H%M%S')
+                    audit_path = f"exports/purchase_invoices_audit_{ts}.ndjson"
+                    try:
+                        os.makedirs('exports', exist_ok=True)
+                        with open(audit_path, 'w', encoding='utf-8') as af:
+                            for b in bills:
+                                af.write(json.dumps(b, ensure_ascii=False) + "\n")
+                        with open(audit_path, 'rb') as f:
+                            st.download_button("Download Bills Audit (NDJSON)", f, file_name=os.path.basename(audit_path), mime='application/x-ndjson')
+                    except Exception:
+                        st.warning("Could not write audit NDJSON file.")
+
+                # Optionally mark bills as synced (dry-run unless live enabled)
+                if mark_synced and bills:
+                    st.info("Preparing to mark bills as synced in Ramp...")
+                    sync_ref = f"BC_BillExport_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                    results = []
+                    progress = st.progress(0)
+                    total = len(bills)
+                    i = 0
+                    for b in bills:
+                        i += 1
+                        tid = b.get('id')
+                        ok = client.mark_transaction_synced(tid, sync_reference=sync_ref)
+                        results.append({'timestamp': datetime.now().isoformat(), 'transaction_id': tid, 'ok': ok, 'message': ''})
+                        progress.progress(i / total)
+
+                    successes = sum(1 for r in results if r['ok'])
+                    failures = len(results) - successes
+                    if enable_live_ramp_sync:
+                        st.success(f"Ramp sync complete: {successes} succeeded, {failures} failed.")
+                    else:
+                        st.info(f"Dry run complete: {successes} would be marked synced (no live requests were sent).")
+
+            except Exception as e:
+                st.error(f"Error generating purchase invoices: {e}")
+
+with reimb_tab:
+    st.subheader("Reimbursements Export")
+    st.write("Export reimbursements (PAID) as BC general journal rows for the selected date range.")
+
+    include_audit = st.checkbox("Write reimbursements audit NDJSON (export original objects)", value=False, key='reim_include_audit')
+    mark_synced = st.checkbox("Mark exported reimbursements as synced in Ramp (dry-run unless live sync enabled)", value=False, key='reim_mark_synced')
+
+    if st.button("Generate Reimbursements for date range"):
+        with st.spinner("Fetching reimbursements and preparing export..."):
+            try:
+                client = RampClient(
+                    base_url=cfg['ramp']['base_url'],
+                    token_url=cfg['ramp']['token_url'],
+                    client_id=env['RAMP_CLIENT_ID'],
+                    client_secret=env['RAMP_CLIENT_SECRET'],
+                    enable_sync=enable_live_ramp_sync
+                )
+                client.authenticate()
+                start_date_str = start_date.strftime('%Y-%m-%d')
+                end_date_str = end_date.strftime('%Y-%m-%d')
+                reims = client.get_reimbursements(status='PAID', start_date=start_date_str, end_date=end_date_str, page_size=cfg['ramp'].get('page_size', 200))
+
+                if not reims:
+                    st.info('No reimbursements found for the specified period.')
+                    st.stop()
+
+                st.success(f"Retrieved {len(reims)} reimbursements (pre-filter)")
+
+                # Filter already-synced
+                before = len(reims)
+                reims = [r for r in reims if not client.is_transaction_synced(r)]
+                after = len(reims)
+                skipped = before - after
+                if skipped:
+                    st.info(f"Skipped {skipped} reimbursements already marked synced in Ramp")
+
+                r_df = ramp_reimbursements_to_bc_rows(reims, cfg)
+
+                # totals
+                reim_total = 0.0
+                for r in reims:
+                    amt = r.get('amount') or r.get('total') or {}
+                    if isinstance(amt, dict):
+                        reim_total += (amt.get('amount', 0) / amt.get('minor_unit_conversion_rate', 100))
+                    else:
+                        try:
+                            reim_total += float(amt)
+                        except Exception:
+                            pass
+
+                rdf_total = r_df['Debit Amount'].sum() if r_df is not None and not r_df.empty and 'Debit Amount' in r_df.columns else 0.0
+                st.write(f"Reimbursements count after filtering: **{len(reims)}**  — Total amount: **${reim_total:,.2f}**")
+                st.write(f"Reimbursement journal debit total: **${rdf_total:,.2f}**")
+
+                st.subheader("Reimbursements Preview (first 10 rows)")
+                if r_df is None or r_df.empty:
+                    st.info('No reimbursement rows generated. Check mapping and data.')
+                else:
+                    st.dataframe(r_df.head(10), use_container_width=True)
+
+                # Provide downloads
+                if r_df is not None and not r_df.empty:
+                    csv_bytes = r_df.to_csv(index=False).encode('utf-8')
+                    fname = f"reimbursements_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
+                    st.download_button("Download Reimbursements CSV", data=csv_bytes, file_name=fname, mime='text/csv')
+
+                # Optional audit
+                if include_audit:
+                    ts = datetime.now().strftime('%Y%m%dT%H%M%S')
+                    audit_path = f"exports/reimbursements_audit_{ts}.ndjson"
+                    try:
+                        os.makedirs('exports', exist_ok=True)
+                        with open(audit_path, 'w', encoding='utf-8') as af:
+                            for r in reims:
+                                af.write(json.dumps(r, ensure_ascii=False) + "\n")
+                        with open(audit_path, 'rb') as f:
+                            st.download_button("Download Reimbursements Audit (NDJSON)", f, file_name=os.path.basename(audit_path), mime='application/x-ndjson')
+                    except Exception:
+                        st.warning('Could not write audit NDJSON file.')
+
+                # Optionally mark reimbursements as synced
+                if mark_synced and reims:
+                    st.info('Preparing to mark reimbursements as synced in Ramp...')
+                    sync_ref = f"BC_ReimExport_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                    results = []
+                    progress = st.progress(0)
+                    total = len(reims)
+                    i = 0
+                    for r in reims:
+                        i += 1
+                        tid = r.get('id')
+                        ok = client.mark_transaction_synced(tid, sync_reference=sync_ref)
+                        results.append({'timestamp': datetime.now().isoformat(), 'transaction_id': tid, 'ok': ok, 'message': ''})
+                        progress.progress(i / total)
+
+                    successes = sum(1 for res in results if res['ok'])
+                    failures = len(results) - successes
+                    if enable_live_ramp_sync:
+                        st.success(f"Ramp sync complete: {successes} succeeded, {failures} failed.")
+                    else:
+                        st.info(f"Dry run complete: {successes} would be marked synced (no live requests were sent).")
+
+            except Exception as e:
+                st.error(f"Error generating reimbursements: {e}")
+
+# End tabbed panel
+
 # Sidebar configuration
 st.sidebar.markdown('<div class="section-header">Export Configuration</div>', unsafe_allow_html=True)
+
+# --- Sidebar: Latest statement period widget ---
+if 'latest_statement' not in st.session_state:
+    st.session_state.latest_statement = None
+    st.session_state.latest_statement_at = None
+
+with st.sidebar.expander('📄 Latest Card Statement', expanded=True):
+    if st.button('Refresh latest statement', key='refresh_statement'):
+        # Force refetch next render
+        st.session_state.latest_statement = None
+        st.session_state.latest_statement_at = None
+
+    if st.session_state.latest_statement is None:
+        # Try to fetch and cache
+        try:
+            sc = RampClient(base_url=cfg['ramp']['base_url'], token_url=cfg['ramp']['token_url'], client_id=env['RAMP_CLIENT_ID'], client_secret=env['RAMP_CLIENT_SECRET'])
+            sc.authenticate()
+            stmts = sc.get_statements()
+            if stmts:
+                st.session_state.latest_statement = stmts[0]
+                st.session_state.latest_statement_at = datetime.now().isoformat()
+        except Exception:
+            st.write('Could not fetch latest statement')
+
+    stmt = st.session_state.get('latest_statement')
+    if stmt:
+        s = (stmt.get('start_date') or '')[:10]
+        e = (stmt.get('end_date') or '')[:10]
+        st.markdown(f"**Period:** {s} → {e}")
+        # try derive charges
+        charges = _extract_amount(stmt.get('charges') or {})
+        if not charges:
+            bsecs = stmt.get('balance_sections') or []
+            if bsecs:
+                charges = _extract_amount(bsecs[0].get('charges') or {})
+        st.markdown(f"**Charges:** ${charges:,.2f}")
+        st.markdown(f"*Fetched at {st.session_state.latest_statement_at}*")
+    else:
+        st.markdown('_No statement cached_')
 
 # Date range selection
 st.sidebar.markdown("**Date Range**")
@@ -799,6 +1189,98 @@ if st.sidebar.button("Execute Export", type="primary", use_container_width=True)
         st.error("Start date must be before end date.")
     else:
         run_export(selected_types, start_date, end_date, cfg, env)
+
+# Purchase Invoice export (one-row-per-bill-line) - Option B
+st.sidebar.markdown("")
+if st.sidebar.button("Export Purchase Invoices (BC CSV)", use_container_width=True, key='export_purchase_invoices'):
+    # Validate dates
+    if start_date >= end_date:
+        st.error("Start date must be before end date.")
+    else:
+        with st.spinner("Authenticating with Ramp API..."):
+            try:
+                client = RampClient(
+                    base_url=cfg['ramp']['base_url'],
+                    token_url=cfg['ramp']['token_url'],
+                    client_id=env['RAMP_CLIENT_ID'],
+                    client_secret=env['RAMP_CLIENT_SECRET'],
+                    enable_sync=enable_live_ramp_sync
+                )
+                client.authenticate()
+                st.success("Authentication successful")
+            except Exception as e:
+                st.error("Authentication failed. Please contact administrator.")
+                st.stop()
+
+        # Fetch approved bills in the date range
+        start_date_str = start_date.strftime('%Y-%m-%d')
+        end_date_str = end_date.strftime('%Y-%m-%d')
+        with st.spinner(f"Fetching bills from {start_date_str} to {end_date_str}..."):
+            bills = client.get_bills(status='APPROVED', start_date=start_date_str, end_date=end_date_str, page_size=cfg['ramp'].get('page_size', 200))
+
+        if not bills:
+            st.info("No approved bills found for the specified period.")
+        else:
+            st.success(f"Retrieved {len(bills)} bills")
+
+            # Remove already-synced bills if possible
+            before = len(bills)
+            bills = [b for b in bills if not client.is_transaction_synced(b)]
+            after = len(bills)
+            if after < before:
+                st.info(f"Skipped {before-after} bills already marked synced in Ramp")
+
+            # Run transforms
+            pi_df = ramp_bills_to_purchase_invoice_lines(bills, cfg)
+            gj_df = ramp_bills_to_general_journal(bills, cfg)
+
+            st.subheader("Purchase Invoice Preview (first 10 rows)")
+            if pi_df is None or pi_df.empty:
+                st.info("No purchase invoice rows generated. Check mapping and bill line items.")
+            else:
+                st.dataframe(pi_df.head(10), use_container_width=True)
+
+            st.subheader("General Journal Preview (first 10 rows)")
+            if gj_df is None or gj_df.empty:
+                st.info("No general journal rows generated.")
+            else:
+                st.dataframe(gj_df.head(10), use_container_width=True)
+
+            # Provide downloads
+            ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+            os.makedirs('exports', exist_ok=True)
+
+            # Purchase Invoice CSV
+            if pi_df is not None and not pi_df.empty:
+                pi_csv_path = f"exports/purchase_invoices_{ts}.csv"
+                pi_df.to_csv(pi_csv_path, index=False)
+                with open(pi_csv_path, 'rb') as f:
+                    st.download_button("Download Purchase Invoices CSV", f, file_name=os.path.basename(pi_csv_path), mime='text/csv')
+
+                # Also export Excel version
+                pi_xlsx_path = f"exports/purchase_invoices_{ts}.xlsx"
+                with pd.ExcelWriter(pi_xlsx_path, engine='openpyxl') as writer:
+                    pi_df.to_excel(writer, sheet_name='PurchaseInvoices', index=False)
+                with open(pi_xlsx_path, 'rb') as f:
+                    st.download_button("Download Purchase Invoices Excel", f, file_name=os.path.basename(pi_xlsx_path), mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+            # General Journal CSV
+            if gj_df is not None and not gj_df.empty:
+                gj_csv_path = f"exports/purchase_invoices_journal_{ts}.csv"
+                gj_df.to_csv(gj_csv_path, index=False)
+                with open(gj_csv_path, 'rb') as f:
+                    st.download_button("Download Purchase Invoices General Journal CSV", f, file_name=os.path.basename(gj_csv_path), mime='text/csv')
+
+            # Write audit NDJSON containing original bill objects
+            audit_path = f"exports/purchase_invoices_audit_{ts}.ndjson"
+            try:
+                with open(audit_path, 'w', encoding='utf-8') as af:
+                    for b in bills:
+                        af.write(json.dumps(b, ensure_ascii=False) + "\n")
+                with open(audit_path, 'rb') as f:
+                    st.download_button("Download Bills Audit (NDJSON)", f, file_name=os.path.basename(audit_path), mime='application/x-ndjson')
+            except Exception:
+                st.warning("Could not write audit NDJSON file.")
 
 # Footer
 st.markdown("""

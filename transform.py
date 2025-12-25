@@ -5,6 +5,7 @@ from typing import List, Dict, Any
 from datetime import datetime
 import os
 import json
+from typing import Iterable
 
 # Define the standard BC General Journal column order
 BC_COLUMN_ORDER = [
@@ -97,7 +98,7 @@ def ramp_to_bc_rows(transactions: List[Dict[str, Any]], cfg: Dict[str, Any]) -> 
             'Debit Amount': round(gl_debit, 2),
             'Credit Amount': round(gl_credit, 2),
             'Bal. Account Type': 'G/L Account',
-            'Bal. Account No.': bc_cfg['ramp_card_account'],
+            'Bal. Account No.': str(bc_cfg['ramp_card_account']),
             'Department Code': department_code or '',
             'Activity Code': activity_code or '',
         })
@@ -108,6 +109,81 @@ def ramp_to_bc_rows(transactions: List[Dict[str, Any]], cfg: Dict[str, Any]) -> 
         print("No valid transactions found with G/L account codes. Returning empty DataFrame.")
         return pd.DataFrame(columns=BC_COLUMN_ORDER)
     return df_output[BC_COLUMN_ORDER]
+
+
+def fetch_vendor_external_ids(ramp_client, vendor_ids: Iterable[str]) -> Dict[str, str]:
+    """
+    Given a RampClient and an iterable of vendor UUIDs, fetch vendor records
+    from the Vendor API and return a mapping vendor_id -> external id value.
+
+    The function looks for common field names where the UI "External ID" may be stored
+    (e.g. `external_vendor_id`, `external_id`, `remote_code`, `accounting_vendor_remote_id`).
+    If no external id is found for a vendor, the mapping will contain an empty string.
+    """
+    vendor_map: Dict[str, str] = {}
+    if not vendor_ids:
+        return vendor_map
+
+    # Prefer fetching the full vendor list once (more efficient and avoids
+    # per-id 404 issues). Build a mapping vendor.id -> vendor record.
+    try:
+        all_vendors = ramp_client.get_vendors()
+    except Exception:
+        all_vendors = []
+
+    lookup_by_id: Dict[str, Dict] = {}
+    for v in all_vendors:
+        vid = v.get('id')
+        if vid:
+            lookup_by_id[vid] = v
+
+    unique_ids = set(vendor_ids)
+    for vid in unique_ids:
+        if not vid:
+            continue
+        v = lookup_by_id.get(vid)
+        if not v:
+            # fallback to per-id lookup if not in list
+            try:
+                v = ramp_client.get_vendor(vid)
+            except Exception:
+                v = None
+
+        ext = ""
+        if v and isinstance(v, dict):
+            for k in ("external_vendor_id", "external_id", "externalId", "remote_code", "remoteCode", "accounting_vendor_remote_id", "externalCode"):
+                val = v.get(k)
+                if val:
+                    ext = str(val)
+                    break
+        vendor_map[vid] = ext
+    return vendor_map
+
+
+def enrich_bills_with_vendor_external_ids(bills: List[Dict[str, Any]], ramp_client) -> List[Dict[str, Any]]:
+    """
+    For each bill in `bills`, fetch the corresponding vendor record via
+    `ramp_client.get_vendor()` and attach a resolved `external_vendor_id` into
+    `bill['vendor']['external_vendor_id_resolved']` when available.
+
+    Returns the modified list of bills (mutates in-place but also returns it).
+    """
+    if not bills:
+        return bills
+
+    vendor_ids = [b.get('vendor', {}).get('id') for b in bills if b.get('vendor')]
+    vendor_map = fetch_vendor_external_ids(ramp_client, vendor_ids)
+
+    for b in bills:
+        v = b.get('vendor') or {}
+        vid = v.get('id')
+        resolved = vendor_map.get(vid, "")
+        # Attach resolved external id for downstream transforms
+        if 'vendor' not in b:
+            b['vendor'] = {}
+        b['vendor']['external_vendor_id_resolved'] = resolved
+
+    return bills
 
 
 def ramp_bills_to_bc_rows(bills: List[Dict[str, Any]], cfg: Dict[str, Any]) -> pd.DataFrame:
@@ -170,7 +246,7 @@ def ramp_bills_to_bc_rows(bills: List[Dict[str, Any]], cfg: Dict[str, Any]) -> p
         
         # Bills create payables: Debit Expense, Credit Vendor Payable
         # Use the coded expense account if available, otherwise suspense account
-        expense_account = gl_account if gl_account and gl_account not in ('None', 'null', '') else bc_cfg.get('vendor_payable_account', '20000')
+        expense_account = gl_account if gl_account and gl_account not in ('None', 'null', '') else bc_cfg.get('vendor_payable_account', '26000')
         
         journal_lines.append({
             'Journal Template Name': bc_cfg.get('template_name', 'GENERAL'),
@@ -180,14 +256,14 @@ def ramp_bills_to_bc_rows(bills: List[Dict[str, Any]], cfg: Dict[str, Any]) -> p
             'Document Type': 'Invoice',  # Bills are invoices from vendors
             'Document No.': doc_no,
             'Account Type': 'G/L Account',
-            'Account No.': expense_account,  # Use coded expense account
+            'Account No.': str(expense_account),  # Use coded expense account (as string)
             'Description': description,
             'Debit Amount': round(amount, 2),  # Debit the expense account
             'Credit Amount': 0.0,
             'Bal. Account Type': 'G/L Account',
-            'Bal. Account No.': bc_cfg.get('vendor_payable_account', '20000'),  # Credit vendor payable
-            'Department Code': department_code or '',
-            'Activity Code': activity_code or '',
+            'Bal. Account No.': str(bc_cfg.get('vendor_payable_account', '26000')),  # Credit vendor payable (as string)
+            'Department Code': str(department_code or ''),
+            'Activity Code': str(activity_code or ''),
         })
         line_no_base += 1000
 
@@ -268,14 +344,14 @@ def ramp_reimbursements_to_bc_rows(reimbursements: List[Dict[str, Any]], cfg: Di
                 'Document Type': 'Payment',
                 'Document No.': doc_no,
                 'Account Type': 'G/L Account',
-                'Account No.': gl_account,  # Employee-coded expense account
+                'Account No.': str(gl_account),  # Employee-coded expense account (as string)
                 'Description': description,
                 'Debit Amount': round(amount, 2),
                 'Credit Amount': 0.0,
                 'Bal. Account Type': 'G/L Account',
-                'Bal. Account No.': bc_cfg.get('bank_account', '11005'),  # Bank account (reimbursement payment)
-                'Department Code': department_code or '',
-                'Activity Code': activity_code or '',
+                'Bal. Account No.': str(bc_cfg.get('bank_account', '11005')),  # Bank account (reimbursement payment) as string
+                'Department Code': str(department_code or ''),
+                'Activity Code': str(activity_code or ''),
             })
             line_no_base += 1000
 
@@ -326,12 +402,12 @@ def ramp_cashbacks_to_bc_rows(cashbacks: List[Dict[str, Any]], cfg: Dict[str, An
             'Document Type': 'Payment',
             'Document No.': doc_no,
             'Account Type': 'G/L Account',
-            'Account No.': bc_cfg.get('other_income_account', '40000'),  # Other income account
+            'Account No.': str(bc_cfg.get('other_income_account', '40000')),  # Other income account (as string)
             'Description': description,
             'Debit Amount': round(amount, 2),
             'Credit Amount': 0.0,
             'Bal. Account Type': 'G/L Account',
-            'Bal. Account No.': bc_cfg.get('bank_account', '11005'),
+            'Bal. Account No.': str(bc_cfg.get('bank_account', '11005')),
             'Department Code': '',
             'Activity Code': '',
         })
@@ -386,7 +462,7 @@ def ramp_statements_to_bc_rows(statements: List[Dict[str, Any]], cfg: Dict[str, 
             'Document Type': '',
             'Document No.': doc_no,
             'Account Type': 'G/L Account',
-            'Account No.': bc_cfg.get('ramp_card_account', '26100'),
+            'Account No.': str(bc_cfg.get('ramp_card_account', '26100')),
             'Description': description,
             'Debit Amount': 0.0,
             'Credit Amount': round(total_amount, 2),
@@ -403,12 +479,15 @@ def ramp_statements_to_bc_rows(statements: List[Dict[str, Any]], cfg: Dict[str, 
     return df_output[BC_COLUMN_ORDER]
 
 
-def ramp_credit_card_to_bc_rows(transactions: List[Dict[str, Any]], cfg: Dict[str, Any]) -> pd.DataFrame:
+def ramp_credit_card_to_bc_rows(transactions: List[Dict[str, Any]], cfg: Dict[str, Any], write_audit: bool = True) -> pd.DataFrame:
     """
     Converts Ramp credit-card transactions into a single-line-per-transaction
     Business Central-friendly DataFrame using the user's requested column
-    ordering and formatting. Also writes an audit CSV with exported Ramp ids
-    for traceability.
+    ordering and formatting.
+
+    When `write_audit` is True (default), an audit CSV with exported Ramp ids
+    will be written to `exports/` for traceability. Set to False to suppress
+    audit file creation (used by v2 CC exporter to avoid extra files).
 
     Expected mapping (per user):
       - Date = posting_date (MM/DD/YYYY)
@@ -504,23 +583,38 @@ def ramp_credit_card_to_bc_rows(transactions: List[Dict[str, Any]], cfg: Dict[st
             gl_debit = round(amt, 2)
             gl_credit = 0.0
 
+        # Build BC-style journal line per requested headers
+        doc_no = f"RAMP-{t.get('id', index)}"
+        # Description format: "{merchant_name} | {memo}" (omit pipe if memo empty)
+        memo = t.get('memo') or ''
+        if merchant and memo:
+            description = f"{merchant} | {memo}"
+        elif merchant:
+            description = merchant
+        else:
+            description = memo or ''
+
         journal_lines.append({
-            'Date': date_str,
-            'Merchant': merchant,
+            'Journal Template Name': 'GENERAL',
+            'Journal Batch Name': 'RAMP_IMPORT',
+            'Line No.': line_no_base,
             'Posting Date': posting_date_str,
-            'Description': description,
+            'Document Type': 'Payment',
+            'Document No.': doc_no,
             'Account Type': 'G/L Account',
-            'Account': trans_gl_account,
-            'Account Name': '',
-            'Department': department_code or '',
-            'Activity': activity_code or '',
-            'Debit': gl_debit,
-            'Credit': gl_credit,
+            'Account No.': str(trans_gl_account),
+            'Description': description,
+            'Debit Amount': gl_debit,
+            'Credit Amount': gl_credit,
+            'Bal. Account Type': 'G/L Account',
+            'Bal. Account No.': str(bc_cfg.get('ramp_card_account', '26100')),
+            'Department Code': str(department_code or ''),
+            'Activity Code': str(activity_code or ''),
         })
 
         audit_rows.append({
             'ramp_id': t.get('id'),
-            'doc_no': f"RAMP-{t.get('id', index)}",
+            'doc_no': doc_no,
             'date': date_str,
             'posting_date': posting_date_str,
             'merchant': merchant,
@@ -535,17 +629,410 @@ def ramp_credit_card_to_bc_rows(transactions: List[Dict[str, Any]], cfg: Dict[st
     df_output = pd.DataFrame(journal_lines)
     if df_output.empty:
         print("No valid credit-card transactions found. Returning empty DataFrame.")
-        return pd.DataFrame(columns=CC_COLUMN_ORDER)
+        return pd.DataFrame(columns=BC_COLUMN_ORDER)
 
-    # Ensure exports directory exists and write an audit CSV for traceability
+    # Ensure exports directory exists
     exports_dir = cfg.get('exports_path', 'exports') if isinstance(cfg, dict) else 'exports'
     os.makedirs(exports_dir, exist_ok=True)
-    ts = datetime.now().strftime('%Y%m%dT%H%M%S')
-    audit_path = os.path.join(exports_dir, f'cc_export_audit_{ts}.csv')
-    try:
-        pd.DataFrame(audit_rows).to_csv(audit_path, index=False)
-        print(f"Wrote audit CSV with exported Ramp IDs to: {audit_path}")
-    except Exception as e:
-        print(f"Failed to write audit CSV: {e}")
 
-    return df_output[CC_COLUMN_ORDER]
+    # Optionally write an audit CSV for traceability
+    if write_audit:
+        ts = datetime.now().strftime('%Y%m%dT%H%M%S')
+        audit_path = os.path.join(exports_dir, f'cc_export_audit_{ts}.csv')
+        try:
+            pd.DataFrame(audit_rows).to_csv(audit_path, index=False)
+            print(f"Wrote audit CSV with exported Ramp IDs to: {audit_path}")
+        except Exception as e:
+            print(f"Failed to write audit CSV: {e}")
+
+    # Cast department/activity/account no. to strings and ensure column order matches BC template
+    df_output = df_output.astype({
+        'Account No.': str,
+        'Bal. Account No.': str,
+        'Department Code': str,
+        'Activity Code': str
+    })
+
+    return df_output[BC_COLUMN_ORDER]
+
+
+def ramp_bills_to_purchase_invoice_lines(bills: List[Dict[str, Any]], cfg: Dict[str, Any]) -> pd.DataFrame:
+    """
+    Convert Ramp bills into a flat, one-row-per-bill-line CSV suitable for
+    importing into Business Central Purchase Invoices via CSV.
+
+    Columns produced (minimum set based on example):
+      - No. (left blank so BC assigns)
+      - Buy-from Vendor No. (Ramp vendor external id)
+      - Buy-from Vendor Name
+      - Vendor Invoice No. (vendor invoice number from Ramp)
+      - Location Code (from config or blank)
+      - Assigned User ID (optional from bill)
+      - Line Description
+      - Account No. (G/L account for the line)
+      - Department (maps to Shortcut Dimension 1 Code)
+      - Activity (maps to Shortcut Dimension 2 Code)
+      - Amount (line amount in major units)
+      - VAT Code (default from config)
+
+    Returns a DataFrame with the columns in a conservative order suitable for import.
+    """
+    if not bills:
+        return pd.DataFrame()
+
+    rows = []
+    bc_cfg = cfg.get('business_central', {}) if isinstance(cfg, dict) else {}
+    default_vat = bc_cfg.get('default_vat_code', '')
+    location_code = str(bc_cfg.get('location_code', ''))
+    # Vendor lookup field for BC 'Buy-from Vendor No.' (configurable; default to 'external_id')
+    # We prefer any previously-resolved vendor external id attached by enrichment
+    vendor_lookup_field = bc_cfg.get('vendor_lookup_field', 'external_id')
+
+    for bill in bills:
+        vendor = bill.get('vendor') or {}
+        # Use resolved external id first (from enrichment), then configured lookup field,
+        # then common vendor fields as fallbacks.
+        buy_from_no = ''
+        if vendor:
+            buy_from_no = (
+                vendor.get('external_vendor_id_resolved') or
+                vendor.get(vendor_lookup_field) or
+                vendor.get('external_vendor_id') or
+                vendor.get('external_id') or
+                vendor.get('remote_code') or
+                vendor.get('id') or
+                ''
+            )
+        buy_from_name = vendor.get('name') or ''
+        # Vendor invoice no: try common fields
+        vendor_invoice_no = bill.get('vendor_invoice_number') or bill.get('invoice_number') or bill.get('document_number') or bill.get('id')
+
+        bill_date = bill.get('bill_date') or bill.get('created_at')
+
+        line_items = bill.get('line_items', [])
+        if not line_items:
+            # Fallback to whole-bill row
+            amount_obj = bill.get('amount', {})
+            if isinstance(amount_obj, dict):
+                amt = amount_obj.get('amount', 0) / amount_obj.get('minor_unit_conversion_rate', 100)
+            else:
+                try:
+                    amt = float(amount_obj)
+                except Exception:
+                    amt = 0.0
+
+            rows.append({
+                'No.': '',
+                'Buy-from Vendor No.': str(buy_from_no),
+                'Buy-from Vendor Name': buy_from_name,
+                'Vendor Invoice No.': vendor_invoice_no,
+                'Location Code': location_code,
+                'Assigned User ID': str(bill.get('assigned_user_id', '')),
+                'Line Description': bill.get('memo', ''),
+                'Account No.': str(bc_cfg.get('vendor_payable_account', '')),
+                'Department': '',
+                'Activity': '',
+                'Amount': round(amt, 2),
+                'VAT Code': default_vat,
+            })
+            continue
+
+        for li in line_items:
+            # Determine line amount
+            amount_obj = li.get('amount') or li.get('total') or li.get('value') or {}
+            if isinstance(amount_obj, dict):
+                minor_amount = amount_obj.get('amount', 0)
+                conv = amount_obj.get('minor_unit_conversion_rate', 100)
+                amount = float(minor_amount) / float(conv) if conv else float(minor_amount)
+            else:
+                try:
+                    amount = float(amount_obj)
+                except Exception:
+                    # Try top-level bill amount fallback
+                    bill_amount = bill.get('amount', {})
+                    if isinstance(bill_amount, dict):
+                        amount = float(bill_amount.get('amount', 0)) / float(bill_amount.get('minor_unit_conversion_rate', 100))
+                    else:
+                        try:
+                            amount = float(bill_amount)
+                        except Exception:
+                            amount = 0.0
+
+            # Extract accounting selections
+            gl_account = ''
+            department_code = ''
+            activity_code = ''
+            accounting_fields = li.get('accounting_field_selections') or []
+            for selection in accounting_fields:
+                if selection.get('type') == 'GL_ACCOUNT' or selection.get('category_info', {}).get('type') == 'GL_ACCOUNT':
+                    gl_account = str(selection.get('external_code', '')).strip()
+                elif selection.get('type') == 'OTHER' or selection.get('category_info', {}).get('type') == 'OTHER':
+                    external_id = selection.get('category_info', {}).get('external_id')
+                    if external_id == 'Department':
+                        department_code = str(selection.get('external_code', '')).strip()
+                    elif external_id == 'Activity Code':
+                        activity_code = str(selection.get('external_code', '')).strip()
+
+            rows.append({
+                'No.': '',
+                'Buy-from Vendor No.': str(buy_from_no),
+                'Buy-from Vendor Name': buy_from_name,
+                'Vendor Invoice No.': vendor_invoice_no,
+                'Location Code': location_code,
+                'Assigned User ID': str(bill.get('assigned_user_id', '')),
+                'Line Description': li.get('memo') or li.get('description') or bill.get('memo', ''),
+                'Account No.': str(gl_account or ''),
+                'Department': str(department_code or ''),
+                'Activity': str(activity_code or ''),
+                'Amount': round(amount, 2),
+                'VAT Code': default_vat,
+            })
+
+    df = pd.DataFrame(rows)
+    # Ensure columns order similar to example + extras
+    cols = ['No.', 'Buy-from Vendor No.', 'Buy-from Vendor Name', 'Vendor Invoice No.', 'Location Code', 'Assigned User ID', 'Line Description', 'Account No.', 'Department', 'Activity', 'Amount', 'VAT Code']
+    return df[cols]
+
+
+def ramp_bills_to_general_journal(bills: List[Dict[str, Any]], cfg: Dict[str, Any]) -> pd.DataFrame:
+    """
+    Create a General Journal-format DataFrame for bills that posts expense debits
+    per bill-line and a single credit to Vendor Payable per bill.
+
+    Columns follow the example 'General Journals_accountant_format.csv' and include:
+      Batch Name,Document No.,Approval Status,Posting Date,Description,Account Type,Account No.,Account Name,Department Code,Activity Code,Debit Amount,Credit Amount,...
+    """
+    if not bills:
+        return pd.DataFrame()
+
+    bc_cfg = cfg.get('business_central', {}) if isinstance(cfg, dict) else {}
+    batch_name = bc_cfg.get('batch_name', 'CONTROLLER')
+    # Default vendor payable account should be 26000 unless overridden in config
+    vendor_payable = str(bc_cfg.get('vendor_payable_account', '26000'))
+    # Optional exact GL -> payable mapping (preferred): e.g. {'54010': '26010'}
+    gl_to_payable_map = bc_cfg.get('gl_to_payable_map', {'54010': '26010'})
+    # Normalize mapping keys/values to strings for reliable lookup
+    try:
+        gl_to_payable_map = {str(k): str(v) for k, v in (gl_to_payable_map or {}).items()}
+    except Exception:
+        gl_to_payable_map = {}
+    # Optional prefix mapping as a fallback: e.g. {'54': '26'} will map 54xxx -> 26xxx
+    payable_prefix_map = bc_cfg.get('payable_prefix_map', {}) or {}
+    try:
+        payable_prefix_map = {str(k): str(v) for k, v in payable_prefix_map.items()}
+    except Exception:
+        payable_prefix_map = {}
+    bank_account = str(bc_cfg.get('bank_account', '11005'))
+
+    rows = []
+    # Track payable accounts encountered per-bill and debit GLs so balancing line
+    # can use a mapped payable when available (prefer mapping from expense GL -> payable)
+    encountered_payables = []
+    encountered_debit_gls = []
+    for bill in bills:
+        # reset encountered payables and debit GLs for this bill
+        encountered_payables = []
+        encountered_debit_gls = []
+        bill_date = bill.get('bill_date') or bill.get('created_at')
+        # Business Central expects MM/DD/YYYY in the provided sample
+        try:
+            if bill_date:
+                # Accept ISO or full datetime strings
+                posting_date = datetime.fromisoformat(bill_date[:19]).strftime('%m/%d/%Y')
+            else:
+                posting_date = datetime.now().strftime('%m/%d/%Y')
+        except Exception:
+            try:
+                posting_date = datetime.strptime(bill_date[:10], '%Y-%m-%d').strftime('%m/%d/%Y')
+            except Exception:
+                posting_date = datetime.now().strftime('%m/%d/%Y')
+        vendor_invoice_no = bill.get('vendor_invoice_number') or bill.get('invoice_number') or bill.get('document_number') or bill.get('id')
+        description = bill.get('memo') or f"Bill {vendor_invoice_no}"
+
+        # Sum per-bill amounts and track debits/credits
+        total_amount = 0.0
+        total_debits = 0.0
+        total_credits = 0.0
+        line_items = bill.get('line_items', [])
+        for li in line_items:
+            amount_obj = li.get('amount') or li.get('total') or {}
+            if isinstance(amount_obj, dict):
+                amt = amount_obj.get('amount', 0) / amount_obj.get('minor_unit_conversion_rate', 100)
+            else:
+                try:
+                    amt = float(amount_obj)
+                except Exception:
+                    amt = 0.0
+
+            # Extract GL account and dimensions
+            gl_account = ''
+            department_code = ''
+            activity_code = ''
+            accounting_fields = li.get('accounting_field_selections') or []
+            for selection in accounting_fields:
+                if selection.get('type') == 'GL_ACCOUNT' or selection.get('category_info', {}).get('type') == 'GL_ACCOUNT':
+                    gl_account = str(selection.get('external_code', '')).strip()
+                elif selection.get('type') == 'OTHER' or selection.get('category_info', {}).get('type') == 'OTHER':
+                    external_id = selection.get('category_info', {}).get('external_id')
+                    if external_id == 'Department':
+                        department_code = str(selection.get('external_code', '')).strip()
+                    elif external_id == 'Activity Code':
+                        activity_code = str(selection.get('external_code', '')).strip()
+
+            total_amount += amt
+            # If the line's GL account is the vendor payable account, treat as a credit
+            payable_acct = vendor_payable
+            # Support explicit exact GL -> payable mapping first
+            if gl_account and str(gl_account) in gl_to_payable_map:
+                payable_acct = gl_to_payable_map.get(str(gl_account))
+            else:
+                # Fallback: support derived payable accounts based on prefix mapping
+                if gl_account:
+                    for pfx, tgt in payable_prefix_map.items():
+                        if str(gl_account).startswith(str(pfx)):
+                            # keep trailing digits
+                            suffix = str(gl_account)[len(pfx):]
+                            derived = f"{tgt}{suffix}"
+                            payable_acct = derived
+                            break
+            # record payable encountered for this bill
+            if payable_acct not in encountered_payables:
+                encountered_payables.append(str(payable_acct))
+
+            # If this line is a debit (i.e., not a payable line), record the GL for potential mapping
+            if not (gl_account and str(gl_account).strip() == str(payable_acct).strip()):
+                # treat as debit GL
+                if gl_account:
+                    encountered_debit_gls.append(str(gl_account))
+            if gl_account and str(gl_account).strip() == str(payable_acct).strip():
+                # Credit to payable
+                rows.append({
+                    'Batch Name': batch_name,
+                    'Document No.': vendor_invoice_no,
+                    'Approval Status': '',
+                    'Posting Date': posting_date,
+                    'Description': li.get('memo') or description,
+                    'Account Type': 'G/L Account',
+                    'Account No.': str(gl_account),
+                    'Account Name': '',
+                    'Department Code': str(department_code or ''),
+                    'Activity Code': str(activity_code or ''),
+                    'Debit Amount': 0.0,
+                    'Credit Amount': round(amt, 2),
+                })
+                total_credits += amt
+            else:
+                # Debit expense line
+                # Debit expense line
+                # If GL missing, fallback to configured vendor_payable (intent: suspend to payable)
+                fallback_account = str(bc_cfg.get('vendor_payable_account', vendor_payable))
+                rows.append({
+                    'Batch Name': batch_name,
+                    'Document No.': vendor_invoice_no,
+                    'Approval Status': '',
+                    'Posting Date': posting_date,
+                    'Description': li.get('memo') or description,
+                    'Account Type': 'G/L Account',
+                    'Account No.': str(gl_account or fallback_account),
+                    'Account Name': '',
+                    'Department Code': str(department_code or ''),
+                    'Activity Code': str(activity_code or ''),
+                    'Debit Amount': round(amt, 2),
+                    'Credit Amount': 0.0,
+                })
+                total_debits += amt
+
+        # Choose payable account for balancing: prefer mapping from any encountered debit GL
+        payable_for_balance = vendor_payable
+        for debit_gl in encountered_debit_gls:
+            mapped = gl_to_payable_map.get(str(debit_gl))
+            if mapped:
+                payable_for_balance = str(mapped)
+                break
+        else:
+            # fallback: prefer any non-default payable encountered
+            for p in encountered_payables:
+                if p and p != vendor_payable:
+                    payable_for_balance = p
+                    break
+
+        # Add a balancing line to vendor payable only if debits != credits
+        imbalance = round(total_debits - total_credits, 2)
+        if abs(imbalance) > 0.0001:
+            if imbalance > 0:
+                # Debits exceed credits -> add a credit to payable for the difference
+                rows.append({
+                    'Batch Name': batch_name,
+                    'Document No.': vendor_invoice_no,
+                    'Approval Status': '',
+                    'Posting Date': posting_date,
+                    'Description': f"Invoice {vendor_invoice_no}",
+                    'Account Type': 'G/L Account',
+                    'Account No.': str(payable_for_balance),
+                    'Account Name': '',
+                    'Department Code': '',
+                    'Activity Code': '',
+                    'Debit Amount': 0.0,
+                    'Credit Amount': round(imbalance, 2),
+                })
+            else:
+                # Credits exceed debits -> add a debit to payable for the difference
+                rows.append({
+                    'Batch Name': batch_name,
+                    'Document No.': vendor_invoice_no,
+                    'Approval Status': '',
+                    'Posting Date': posting_date,
+                    'Description': f"Invoice {vendor_invoice_no}",
+                    'Account Type': 'G/L Account',
+                    'Account No.': str(payable_for_balance),
+                    'Account Name': '',
+                    'Department Code': '',
+                    'Activity Code': '',
+                    'Debit Amount': round(-imbalance, 2),
+                    'Credit Amount': 0.0,
+                })
+
+    df = pd.DataFrame(rows)
+
+    # Compute batch-level totals and counts
+    total_debit = float(df['Debit Amount'].sum()) if not df.empty else 0.0
+    total_credit = float(df['Credit Amount'].sum()) if not df.empty else 0.0
+    number_of_records = len(df)
+    total_balance = total_debit - total_credit
+
+    # Add extra columns from provided template, fill with sensible defaults or totals
+    extra_cols = [
+        'Sustainability Account No.', 'Total Emission CO2', 'Total Emission CH4', 'Total Emission N2O',
+        'IRS 1099 Reporting Period', 'IRS 1099 Form No.', 'IRS 1099 Form Box No.',
+        'NumberOfJournalRecords', 'Total Debit', 'Total Credit', 'Balance', 'Total Balance'
+    ]
+
+    for c in extra_cols:
+        df[c] = ''
+
+    # Populate aggregate and per-row summary fields
+    df['NumberOfJournalRecords'] = number_of_records
+    # Per-row Total Debit/Credit should reflect each row's amounts (only one populated)
+    df['Total Debit'] = df['Debit Amount'].fillna(0).apply(lambda x: round(float(x), 2) if x and float(x) != 0.0 else 0.00)
+    df['Total Credit'] = df['Credit Amount'].fillna(0).apply(lambda x: round(float(x), 2) if x and float(x) != 0.0 else 0.00)
+    # Per-row Balance = Debit - Credit
+    df['Balance'] = (df['Debit Amount'] - df['Credit Amount']).round(2)
+    # Keep Total Balance as the overall batch balance
+    df['Total Balance'] = round(total_balance, 2)
+
+    # Ensure consistent ordering to match your CSV template
+    cols = [
+        'Batch Name','Document No.','Approval Status','Posting Date','Description','Account Type','Account No.','Account Name',
+        'Department Code','Activity Code','Debit Amount','Credit Amount',
+        'Sustainability Account No.','Total Emission CO2','Total Emission CH4','Total Emission N2O',
+        'IRS 1099 Reporting Period','IRS 1099 Form No.','IRS 1099 Form Box No.',
+        'NumberOfJournalRecords','Total Debit','Total Credit','Balance','Total Balance'
+    ]
+
+    # Ensure all columns exist
+    for c in cols:
+        if c not in df.columns:
+            df[c] = ''
+
+    # Reorder
+    return df[cols]

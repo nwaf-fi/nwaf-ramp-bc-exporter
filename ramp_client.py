@@ -19,22 +19,54 @@ class RampClient:
 
     def authenticate(self):
         # Request all possible scopes - OAuth will grant only the ones allowed for this client
-        all_scopes = "transactions:read bills:read reimbursements:read cashbacks:read statements:read accounting:read accounting:write"
-        resp = self.session.post(
-            self.token_url,
-            data={"grant_type": "client_credentials", "scope": all_scopes},
-            auth=(self.client_id, self.client_secret)  # Use Basic Auth
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        self._token = data.get("access_token")
-        
-        # Log which scopes were actually granted (if available in response)
-        self.granted_scopes = data.get("scope", "")
-        print(f"🔑 OAuth token granted with scopes: {self.granted_scopes}")
-        
-        self.session.headers.update({"Authorization": f"Bearer {self._token}"})
-        return self._token
+        all_scopes = "transactions:read bills:read reimbursements:read cashbacks:read statements:read accounting:read accounting:write transfers:read vendors:read"
+        tried = []
+        # If a specific token_url was provided, try it first; otherwise derive from base_url
+        candidates = [self.token_url]
+        # Add common alternate token endpoints on same host if token_url is provided
+        try:
+            from urllib.parse import urlparse, urlunparse
+            parsed = urlparse(self.token_url)
+            if parsed.scheme and parsed.netloc:
+                base_auth = urlunparse((parsed.scheme, parsed.netloc, '', '', '', ''))
+                # common token paths
+                for p in ("/oauth/token", "/oauth2/token", "/oauth2/v2/token"):
+                    candidate = base_auth + p
+                    if candidate not in candidates:
+                        candidates.append(candidate)
+        except Exception:
+            pass
+
+        last_exc = None
+        for url in candidates:
+            tried.append(url)
+            try:
+                resp = self.session.post(
+                    url,
+                    data={"grant_type": "client_credentials", "scope": all_scopes},
+                    auth=(self.client_id, self.client_secret),
+                    timeout=10,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                self._token = data.get("access_token")
+                self.granted_scopes = data.get("scope", "")
+                print(f"🔑 OAuth token granted from {url} with scopes: {self.granted_scopes}")
+                self.session.headers.update({"Authorization": f"Bearer {self._token}"})
+                return self._token
+            except Exception as ex:
+                last_exc = ex
+                # Log and try next candidate
+                print(f"Auth attempt to {url} failed: {ex}")
+
+        # If we get here, all attempts failed
+        print("Failed to obtain OAuth token. Tried the following token endpoints:")
+        for t in tried:
+            print(f" - {t}")
+        # Re-raise the last exception to let callers handle it if desired
+        if last_exc:
+            raise last_exc
+        raise RuntimeError("Unable to obtain OAuth token; no token endpoint succeeded")
 
     def get_transactions(self, status: Optional[str] = None,
                         start_date: Optional[str] = None, end_date: Optional[str] = None,
@@ -66,6 +98,68 @@ class RampClient:
                        page_size: int = 200) -> List[Dict]:
         """Fetch statements from Ramp API"""
         return self._get_paginated_data("statements", status, start_date, end_date, page_size)
+
+    def get_transfers(self, start_date: Optional[str] = None, end_date: Optional[str] = None,
+                      page_size: int = 200) -> List[Dict]:
+        """Fetch transfers from Ramp API (paginated).
+
+        Returns a list of transfer objects as returned by the API. Supports
+        optional `start_date` and `end_date` filters (YYYY-MM-DD).
+        """
+        return self._get_paginated_data("transfers", None, start_date, end_date, page_size)
+
+    def get_vendor(self, vendor_id: str) -> Optional[Dict]:
+        """
+        Fetch a single Vendor record by vendor_id using the Vendor API:
+        GET /developer/v1/vendors/{vendor_id}
+
+        Returns the vendor JSON or None on error.
+        """
+        try:
+            url = urljoin(self.base_url + '/', f"vendors/{vendor_id}")
+            resp = self.session.get(url)
+            if resp.status_code == 200:
+                return resp.json()
+            else:
+                # Non-200 -- return None but don't raise to keep dry-run robust
+                print(f"Warning: vendor lookup returned status {resp.status_code} for vendor_id={vendor_id}")
+                return None
+        except Exception as ex:
+            print(f"Exception fetching vendor {vendor_id}: {ex}")
+            return None
+
+    def get_vendors(self, page_size: int = 200) -> List[Dict]:
+        """
+        Fetch all Accounting Vendor records using the
+        GET /developer/v1/accounting/vendors/ endpoint.
+
+        Returns a list of vendor objects. Handles pagination by
+        following `next` or `next_cursor` values returned by the API.
+        Non-200 responses will be logged and result in an empty list.
+        """
+        try:
+            url = urljoin(self.base_url + '/', "vendors/")
+            params = {"limit": page_size}
+            results: List[Dict] = []
+            next_cursor = None
+            while True:
+                if next_cursor:
+                    params["cursor"] = next_cursor
+                resp = self.session.get(url, params=params)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    items = data.get("data") or []
+                    results.extend(items)
+                    next_cursor = data.get("next") or data.get("next_cursor")
+                    if not next_cursor:
+                        break
+                else:
+                    print(f"Warning: vendors list returned status {resp.status_code}")
+                    break
+            return results
+        except Exception as ex:
+            print(f"Exception fetching vendors: {ex}")
+            return []
 
     def mark_transaction_synced(self, transaction_id: str, sync_reference: str = None) -> bool:
         """
