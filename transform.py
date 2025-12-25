@@ -915,8 +915,9 @@ def ramp_bills_to_general_journal(bills: List[Dict[str, Any]], cfg: Dict[str, An
                     'Account Type': 'G/L Account',
                     'Account No.': str(gl_account),
                     'Account Name': '',
-                    'Department Code': str(department_code or ''),
-                    'Activity Code': str(activity_code or ''),
+                    # For payable (liability) accounts, set canonical dimension defaults
+                    'Department Code': '000',
+                    'Activity Code': '00',
                     'Debit Amount': 0.0,
                     'Credit Amount': round(amt, 2),
                 })
@@ -970,8 +971,9 @@ def ramp_bills_to_general_journal(bills: List[Dict[str, Any]], cfg: Dict[str, An
                     'Account Type': 'G/L Account',
                     'Account No.': str(payable_for_balance),
                     'Account Name': '',
-                    'Department Code': '',
-                    'Activity Code': '',
+                    # Set canonical dimension defaults for liability balancing lines
+                    'Department Code': '000',
+                    'Activity Code': '00',
                     'Debit Amount': 0.0,
                     'Credit Amount': round(imbalance, 2),
                 })
@@ -986,19 +988,11 @@ def ramp_bills_to_general_journal(bills: List[Dict[str, Any]], cfg: Dict[str, An
                     'Account Type': 'G/L Account',
                     'Account No.': str(payable_for_balance),
                     'Account Name': '',
-                    'Department Code': '',
-                    'Activity Code': '',
+                    'Department Code': '000',
+                    'Activity Code': '00',
                     'Debit Amount': round(-imbalance, 2),
                     'Credit Amount': 0.0,
                 })
-
-    df = pd.DataFrame(rows)
-
-    # Compute batch-level totals and counts
-    total_debit = float(df['Debit Amount'].sum()) if not df.empty else 0.0
-    total_credit = float(df['Credit Amount'].sum()) if not df.empty else 0.0
-    number_of_records = len(df)
-    total_balance = total_debit - total_credit
 
     # Add extra columns from provided template, fill with sensible defaults or totals
     extra_cols = [
