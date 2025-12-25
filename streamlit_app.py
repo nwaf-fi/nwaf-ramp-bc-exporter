@@ -801,6 +801,13 @@ with reimb_tab:
     include_audit = st.checkbox("Write reimbursements audit NDJSON (export original objects)", value=False, key='reim_include_audit')
     mark_synced = st.checkbox("Mark exported reimbursements as synced in Ramp (dry-run unless live sync enabled)", value=False, key='reim_mark_synced')
 
+    # Local date range inputs for Reimbursements (fallback to global sidebar dates if present)
+    col_a, col_b = st.columns(2)
+    with col_a:
+        reim_start = st.date_input("Reimbursements: Start Date", value=st.session_state.get('reim_start_date', start_date if 'start_date' in globals() else datetime.now().replace(day=1)), key='reim_start')
+    with col_b:
+        reim_end = st.date_input("Reimbursements: End Date", value=st.session_state.get('reim_end_date', end_date if 'end_date' in globals() else datetime.now()), key='reim_end')
+
     # Add preview action for reimbursements (non-destructive)
     if st.button("Preview Reimbursements for date range", key='preview_reim_btn'):
         with st.spinner("Fetching reimbursements for preview..."):
@@ -813,8 +820,8 @@ with reimb_tab:
                     enable_sync=False
                 )
                 client.authenticate()
-                start_date_str = start_date.strftime('%Y-%m-%d')
-                end_date_str = end_date.strftime('%Y-%m-%d')
+                start_date_str = reim_start.strftime('%Y-%m-%d')
+                end_date_str = reim_end.strftime('%Y-%m-%d')
                 reims = client.get_reimbursements(status='PAID', start_date=start_date_str, end_date=end_date_str, page_size=cfg['ramp'].get('page_size', 200))
 
                 if not reims:
@@ -852,7 +859,7 @@ with reimb_tab:
                     # Provide downloads
                     if r_df is not None and not r_df.empty:
                         csv_bytes = r_df.to_csv(index=False).encode('utf-8')
-                        fname = f"reimbursements_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
+                        fname = f"reimbursements_{reim_start.strftime('%Y%m%d')}_{reim_end.strftime('%Y%m%d')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
                         st.download_button("Download Reimbursements CSV (preview)", data=csv_bytes, file_name=fname, mime='text/csv')
 
             except Exception as e:
@@ -875,8 +882,8 @@ with reimb_tab:
                     enable_sync=st.session_state.get('enable_live_ramp_sync', False)
                 )
                 client.authenticate()
-                start_date_str = start_date.strftime('%Y-%m-%d')
-                end_date_str = end_date.strftime('%Y-%m-%d')
+                start_date_str = reim_start.strftime('%Y-%m-%d')
+                end_date_str = reim_end.strftime('%Y-%m-%d')
                 reims = client.get_reimbursements(status='PAID', start_date=start_date_str, end_date=end_date_str, page_size=cfg['ramp'].get('page_size', 200))
 
                 if not reims:
@@ -920,7 +927,7 @@ with reimb_tab:
                 # Provide downloads
                 if r_df is not None and not r_df.empty:
                     csv_bytes = r_df.to_csv(index=False).encode('utf-8')
-                    fname = f"reimbursements_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
+                    fname = f"reimbursements_{reim_start.strftime('%Y%m%d')}_{reim_end.strftime('%Y%m%d')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
                     st.download_button("Download Reimbursements CSV", data=csv_bytes, file_name=fname, mime='text/csv')
 
                 # Optional audit
