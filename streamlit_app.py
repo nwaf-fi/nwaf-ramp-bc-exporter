@@ -534,10 +534,25 @@ with inv_tab:
     st.subheader("Purchase Invoice Export (Bills)")
     st.write("Generate Purchase Invoices CSV from approved Ramp bills in the selected date range.")
 
-    include_audit = st.checkbox("Write audit NDJSON (export original bill objects)", value=False, key='pi_include_audit')
-    mark_synced = st.checkbox("Mark exported bills as synced in Ramp (dry-run unless live sync enabled)", value=False, key='pi_mark_synced')
+    # Local date range inputs for the Invoices panel (defaults to global sidebar dates)
+    col_a, col_b = st.columns(2)
+    with col_a:
+        inv_start = st.date_input("Invoices: Start Date", value=st.session_state.get('inv_start_date', start_date if 'start_date' in globals() else datetime.now().replace(day=1)), key='inv_start')
+    with col_b:
+        inv_end = st.date_input("Invoices: End Date", value=st.session_state.get('inv_end_date', end_date if 'end_date' in globals() else datetime.now()), key='inv_end')
 
-    if st.button("Generate Purchase Invoices for date range"):
+    include_audit = st.checkbox("Write audit NDJSON (export original bill objects)", value=False, key='pi_include_audit')
+    confirm_mark = st.checkbox("I confirm: mark exported bills as synced (requires confirmation below)", value=False, key='pi_confirm_mark')
+
+    # Clear previous cached results when date range changes
+    if st.session_state.get('inv_start') != inv_start or st.session_state.get('inv_end') != inv_end:
+        st.session_state.pop('inv_bills', None)
+        st.session_state.pop('inv_pi_df', None)
+        st.session_state.pop('inv_gj_df', None)
+        st.session_state['inv_start'] = inv_start
+        st.session_state['inv_end'] = inv_end
+
+    if st.button("Generate Purchase Invoices for date range", key='gen_pi_btn'):
         with st.spinner("Fetching bills and preparing export..."):
             try:
                 client = RampClient(
@@ -548,17 +563,20 @@ with inv_tab:
                     enable_sync=st.session_state.get('enable_live_ramp_sync', False)
                 )
                 client.authenticate()
-                start_date_str = start_date.strftime('%Y-%m-%d')
-                end_date_str = end_date.strftime('%Y-%m-%d')
+
+                start_date_str = inv_start.strftime('%Y-%m-%d')
+                end_date_str = inv_end.strftime('%Y-%m-%d')
+
                 bills = client.get_bills(status='APPROVED', start_date=start_date_str, end_date=end_date_str, page_size=cfg['ramp'].get('page_size', 200))
                 total_bills = len(bills) if isinstance(bills, list) else 0
                 if not bills:
                     st.info('No approved bills found for the specified period.')
+                    st.session_state.pop('inv_bills', None)
                     st.stop()
 
                 st.success(f"Retrieved {total_bills} bills (pre-filter)")
 
-                # Remove already-synced bills if possible
+                # Remove already-synced bills when possible
                 before = len(bills)
                 bills = [b for b in bills if not client.is_transaction_synced(b)]
                 after = len(bills)
@@ -584,6 +602,12 @@ with inv_tab:
 
                 pi_total = pi_df['Amount'].sum() if pi_df is not None and not pi_df.empty and 'Amount' in pi_df.columns else 0.0
 
+                # Store results in session for subsequent actions
+                st.session_state['inv_bills'] = bills
+                st.session_state['inv_pi_df'] = pi_df
+                st.session_state['inv_gj_df'] = gj_df
+                st.session_state['inv_bill_total'] = bill_total
+
                 st.write(f"Bills count after filtering: **{len(bills)}**  — Total amount: **${bill_total:,.2f}**")
                 st.write(f"Purchase Invoice lines total: **${pi_total:,.2f}**")
 
@@ -602,7 +626,7 @@ with inv_tab:
                 # Provide downloads (CSV & Excel)
                 if pi_df is not None and not pi_df.empty:
                     csv_bytes = pi_df.to_csv(index=False).encode('utf-8')
-                    fname = f"purchase_invoices_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
+                    fname = f"purchase_invoices_{inv_start.strftime('%Y%m%d')}_{inv_end.strftime('%Y%m%d')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
                     st.download_button("Download Purchase Invoices CSV", data=csv_bytes, file_name=fname, mime='text/csv')
 
                     # Excel
@@ -616,7 +640,7 @@ with inv_tab:
                 # General Journal
                 if gj_df is not None and not gj_df.empty:
                     gj_csv = gj_df.to_csv(index=False).encode('utf-8')
-                    gj_name = f"purchase_invoices_journal_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
+                    gj_name = f"purchase_invoices_journal_{inv_start.strftime('%Y%m%d')}_{inv_end.strftime('%Y%m%d')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
                     st.download_button("Download Purchase Invoices General Journal CSV", data=gj_csv, file_name=gj_name, mime='text/csv')
 
                 # Optional audit NDJSON (write only when user requests)
@@ -633,30 +657,59 @@ with inv_tab:
                     except Exception:
                         st.warning("Could not write audit NDJSON file.")
 
-                # Optionally mark bills as synced (dry-run unless live enabled)
-                if mark_synced and bills:
-                    st.info("Preparing to mark bills as synced in Ramp...")
-                    sync_ref = f"BC_BillExport_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                    results = []
-                    progress = st.progress(0)
-                    total = len(bills)
-                    i = 0
-                    for b in bills:
-                        i += 1
-                        tid = b.get('id')
-                        ok = client.mark_transaction_synced(tid, sync_reference=sync_ref)
-                        results.append({'timestamp': datetime.now().isoformat(), 'transaction_id': tid, 'ok': ok, 'message': ''})
-                        progress.progress(i / total)
-
-                    successes = sum(1 for r in results if r['ok'])
-                    failures = len(results) - successes
-                    if st.session_state.get('enable_live_ramp_sync', False):
-                        st.success(f"Ramp sync complete: {successes} succeeded, {failures} failed.")
-                    else:
-                        st.info(f"Dry run complete: {successes} would be marked synced (no live requests were sent).")
-
             except Exception as e:
                 st.error(f"Error generating purchase invoices: {e}")
+
+    # If generation has completed and bills are present, offer a separate mark-as-synced action
+    bills_cached = st.session_state.get('inv_bills')
+    if bills_cached:
+        st.markdown('---')
+        st.subheader('Post-generation actions')
+        st.write(f"{len(bills_cached)} bills prepared for export (total ${st.session_state.get('inv_bill_total', 0.0):,.2f}).")
+
+        if st.checkbox('Enable marking these bills as synced (dry-run unless live sync enabled)', value=False, key='pi_enable_mark'):
+            if not st.session_state.get('pi_confirm_mark'):
+                st.warning('Please check the confirmation checkbox above to enable marking.')
+            else:
+                if st.button('Mark these bills as synced in Ramp', key='pi_mark_btn'):
+                    with st.spinner('Marking bills as synced...'):
+                        try:
+                            client = RampClient(
+                                base_url=cfg['ramp']['base_url'],
+                                token_url=cfg['ramp']['token_url'],
+                                client_id=env['RAMP_CLIENT_ID'],
+                                client_secret=env['RAMP_CLIENT_SECRET'],
+                                enable_sync=st.session_state.get('enable_live_ramp_sync', False)
+                            )
+                            client.authenticate()
+
+                            sync_ref = f"BC_BillExport_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                            results = []
+                            progress = st.progress(0)
+                            total = len(bills_cached)
+                            i = 0
+                            for b in bills_cached:
+                                i += 1
+                                tid = b.get('id')
+                                ok = client.mark_transaction_synced(tid, sync_reference=sync_ref)
+                                results.append({'timestamp': datetime.now().isoformat(), 'transaction_id': tid, 'ok': ok, 'message': ''})
+                                progress.progress(i / total)
+
+                            successes = sum(1 for r in results if r['ok'])
+                            failures = len(results) - successes
+                            if st.session_state.get('enable_live_ramp_sync', False):
+                                st.success(f"Ramp sync complete: {successes} succeeded, {failures} failed.")
+                            else:
+                                st.info(f"Dry run complete: {successes} would be marked synced (no live requests were sent).")
+
+                            audit_path = _write_sync_audit(results, sync_ref, user_email=user_email)
+                            if audit_path:
+                                st.markdown(f"Audit CSV written to `{audit_path}`")
+                                with open(audit_path, 'rb') as f:
+                                    st.download_button("Download bills sync audit CSV", f, file_name=os.path.basename(audit_path))
+
+                        except Exception as e:
+                            st.error(f"Error marking bills as synced: {e}")
 
 with reimb_tab:
     st.subheader("Reimbursements Export")
