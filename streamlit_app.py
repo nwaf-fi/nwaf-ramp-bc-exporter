@@ -1013,39 +1013,9 @@ with st.sidebar.expander('📄 Latest Card Statement', expanded=True):
     else:
         st.markdown('_No statement cached_')
 
-# Date range selection
-st.sidebar.markdown("**Date Range**")
-col1, col2 = st.sidebar.columns(2)
-
-with col1:
-    start_date = st.date_input(
-        "Start Date",
-        value=datetime.now().replace(day=1),  # First day of current month
-        help="Start date for data export"
-    )
-
-with col2:
-    end_date = st.date_input(
-        "End Date",
-        value=datetime.now(),
-        help="End date for data export"
-    )
-
-# Data type selection
-st.sidebar.markdown("")
-st.sidebar.markdown("**Data Types**")
-data_types = {
-    'transactions': 'Card Transactions',
-    'bills': 'Bill Payments',
-    'reimbursements': 'Reimbursements',
-    'cashbacks': 'Cashback Credits',
-    'statements': 'Account Statements'
-}
-
-selected_types = []
-for key, label in data_types.items():
-    if st.sidebar.checkbox(label, value=True, key=f"checkbox_{key}"):
-        selected_types.append(key)
+# Note: Per-tab controls
+st.sidebar.markdown("**Per-tab controls**")
+st.sidebar.info("Date ranges, export generation, and downloads are now managed in each export tab (Credit Cards, Invoices, Reimbursements). Use the relevant tab to preview, generate, and download exports.")
 
 
 def run_export(selected_types, start_date, end_date, cfg, env):
@@ -1387,114 +1357,8 @@ def _write_sync_audit(results: list, sync_ref: str, user_email: str = '') -> str
     except Exception:
         return ''
 
-# Export button
-st.sidebar.markdown("")
-if st.sidebar.button("Execute Export", type="primary", use_container_width=True):
-    if not selected_types:
-        st.error("Please select at least one data type to export.")
-    elif start_date >= end_date:
-        st.error("Start date must be before end date.")
-    else:
-        run_export(selected_types, start_date, end_date, cfg, env)
 
-# Purchase Invoice export (one-row-per-bill-line) - Option B
-st.sidebar.markdown("")
-if st.sidebar.button("Export Purchase Invoices (BC CSV)", use_container_width=True, key='export_purchase_invoices'):
-    # Validate dates
-    if start_date >= end_date:
-        st.error("Start date must be before end date.")
-    else:
-        with st.spinner("Authenticating with Ramp API..."):
-            try:
-                client = RampClient(
-                    base_url=cfg['ramp']['base_url'],
-                    token_url=cfg['ramp']['token_url'],
-                    client_id=env['RAMP_CLIENT_ID'],
-                    client_secret=env['RAMP_CLIENT_SECRET'],
-                    enable_sync=st.session_state.get('enable_live_ramp_sync', False)
-                )
-                client.authenticate()
-                st.success("Authentication successful")
-            except Exception as e:
-                st.error("Authentication failed. Please contact administrator.")
-                st.stop()
 
-        # Fetch approved bills in the date range
-        start_date_str = start_date.strftime('%Y-%m-%d')
-        end_date_str = end_date.strftime('%Y-%m-%d')
-        with st.spinner(f"Fetching bills from {start_date_str} to {end_date_str}..."):
-            bills = client.get_bills(status='APPROVED', start_date=start_date_str, end_date=end_date_str, page_size=cfg['ramp'].get('page_size', 200))
-
-        if not bills:
-            st.info("No approved bills found for the specified period.")
-        else:
-            st.success(f"Retrieved {len(bills)} bills")
-
-            # Remove already-synced bills if possible
-            before = len(bills)
-            bills = [b for b in bills if not client.is_transaction_synced(b)]
-            after = len(bills)
-            if after < before:
-                st.info(f"Skipped {before-after} bills already marked synced in Ramp")
-
-            # Enrich bills with vendor external ids from Vendors API to populate Buy-from Vendor No.
-            try:
-                from transform import enrich_bills_with_vendor_external_ids
-                bills = enrich_bills_with_vendor_external_ids(bills, client)
-            except Exception:
-                pass
-
-            # Run transforms
-            pi_df = ramp_bills_to_purchase_invoice_lines(bills, cfg)
-            gj_df = ramp_bills_to_general_journal(bills, cfg)
-
-            st.subheader("Purchase Invoice Preview (first 10 rows)")
-            if pi_df is None or pi_df.empty:
-                st.info("No purchase invoice rows generated. Check mapping and bill line items.")
-            else:
-                st.dataframe(pi_df.head(10), use_container_width=True)
-
-            st.subheader("General Journal Preview (first 10 rows)")
-            if gj_df is None or gj_df.empty:
-                st.info("No general journal rows generated.")
-            else:
-                st.dataframe(gj_df.head(10), use_container_width=True)
-
-            # Provide downloads
-            ts = datetime.now().strftime('%Y%m%d_%H%M%S')
-            os.makedirs('exports', exist_ok=True)
-
-            # Purchase Invoice CSV
-            if pi_df is not None and not pi_df.empty:
-                pi_csv_path = f"exports/purchase_invoices_{ts}.csv"
-                pi_df.to_csv(pi_csv_path, index=False)
-                with open(pi_csv_path, 'rb') as f:
-                    st.download_button("Download Purchase Invoices CSV", f, file_name=os.path.basename(pi_csv_path), mime='text/csv')
-
-                # Also export Excel version
-                pi_xlsx_path = f"exports/purchase_invoices_{ts}.xlsx"
-                with pd.ExcelWriter(pi_xlsx_path, engine='openpyxl') as writer:
-                    pi_df.to_excel(writer, sheet_name='PurchaseInvoices', index=False)
-                with open(pi_xlsx_path, 'rb') as f:
-                    st.download_button("Download Purchase Invoices Excel", f, file_name=os.path.basename(pi_xlsx_path), mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-
-            # General Journal CSV
-            if gj_df is not None and not gj_df.empty:
-                gj_csv_path = f"exports/purchase_invoices_journal_{ts}.csv"
-                gj_df.to_csv(gj_csv_path, index=False)
-                with open(gj_csv_path, 'rb') as f:
-                    st.download_button("Download Purchase Invoices General Journal CSV", f, file_name=os.path.basename(gj_csv_path), mime='text/csv')
-
-            # Write audit NDJSON containing original bill objects
-            audit_path = f"exports/purchase_invoices_audit_{ts}.ndjson"
-            try:
-                with open(audit_path, 'w', encoding='utf-8') as af:
-                    for b in bills:
-                        af.write(json.dumps(b, ensure_ascii=False) + "\n")
-                with open(audit_path, 'rb') as f:
-                    st.download_button("Download Bills Audit (NDJSON)", f, file_name=os.path.basename(audit_path), mime='application/x-ndjson')
-            except Exception:
-                st.warning("Could not write audit NDJSON file.")
 
 # Footer
 st.markdown("""
