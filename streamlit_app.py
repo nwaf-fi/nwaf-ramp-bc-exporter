@@ -409,19 +409,8 @@ st.markdown("---")
 st.header("Exports by Type")
 cc_tab, inv_tab, reimb_tab = st.tabs(["Credit Cards", "Invoices", "Reimbursements"])
 
-# Helper: amount extractor for statement objects
-def _extract_amount(amount_obj):
-    if isinstance(amount_obj, dict):
-        minor = amount_obj.get('amount', 0)
-        conv = amount_obj.get('minor_unit_conversion_rate', 100)
-        try:
-            return float(minor) / float(conv) if conv else float(minor)
-        except Exception:
-            return 0.0
-    try:
-        return float(amount_obj or 0.0)
-    except Exception:
-        return 0.0
+# Amount helper moved to `utils._extract_amount`
+from utils import _extract_amount, _write_sync_audit
 
 with cc_tab:
     st.subheader("Credit Card Statement Export")
@@ -1324,32 +1313,7 @@ def fetch_data_for_type(client, data_type, start_date, end_date, cfg):
     return data, df, processed_ids
 
 
-def _write_sync_audit(results: list, sync_ref: str, user_email: str = '') -> str:
-    """Write sync audit results (list of dicts) to a CSV file in the exports/ folder and return path."""
-    import csv
-    os.makedirs('exports', exist_ok=True)
-    ts = datetime.now().strftime('%Y%m%d_%H%M%S')
-    fname = f"exports/sync_audit_{ts}.csv"
-    headers = ['timestamp', 'transaction_id', 'status', 'sync_reference', 'user_email', 'message']
-    try:
-        with open(fname, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.DictWriter(f, fieldnames=headers)
-            writer.writeheader()
-            for r in results:
-                writer.writerow({
-                    'timestamp': r.get('timestamp', ''),
-                    'transaction_id': r.get('transaction_id', ''),
-                    'status': 'success' if r.get('ok') else 'failure',
-                    'sync_reference': sync_ref,
-                    'user_email': user_email,
-                    'message': r.get('message', '')
-                })
-        return fname
-    except Exception:
-        return ''
-
-
-
+# Audit helper moved to `utils._write_sync_audit`
 
 # Footer
 st.markdown("""
