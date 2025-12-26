@@ -176,14 +176,6 @@ with st.sidebar.expander('📄 Latest Card Statement', expanded=True):
     else:
         st.markdown('_No statement cached_')
 
-# Note: Per-tab controls
-st.sidebar.markdown("**Per-tab controls**")
-st.sidebar.info("Date ranges, export generation, and downloads are managed in each export tab (Credit Cards, Invoices, Reimbursements). Use the relevant tab to preview, generate, and download exports.")
-
-# System Overview (compact sidebar version)
-st.sidebar.markdown("### System Overview")
-st.sidebar.markdown("- **Secure Microsoft Azure AD authentication**\n- **Real-time API integration with Ramp**\n- **Business Central-compatible exports (CSV, Excel)**\n- **Per-tab previews and dry-run-first export flows**")
-
 
 def run_export(selected_types, start_date, end_date, cfg, env):
     """Run the export process and display results"""
