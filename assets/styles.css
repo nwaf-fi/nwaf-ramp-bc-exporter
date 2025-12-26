@@ -1,54 +1,85 @@
-/* Institutional Finance Application Styles */
-/* Conservative, professional design for enterprise financial operations */
+/* ==========================================================
+   Institutional Finance Application Styles
+   Conservative, professional design for enterprise operations
+   ========================================================== */
 
 :root {
+    /* Color palette (UNCHANGED) */
     --primary-dark: #1a1f36;
     --primary-blue: #2c3e50;
     --accent-blue: #3498db;
+
     --text-primary: #2d3748;
     --text-secondary: #718096;
+
     --border-color: #e2e8f0;
     --bg-light: #f7fafc;
     --bg-white: #ffffff;
+
     --success-green: #2f855a;
     --warning-amber: #d97706;
     --error-red: #c53030;
+
+    /* Layout tokens */
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --space-xs: 0.25rem;
+    --space-sm: 0.5rem;
+    --space-md: 1rem;
+    --space-lg: 1.5rem;
+    --space-xl: 2rem;
 }
 
-/* Remove default Streamlit padding */
+/* ----------------------------------------------------------
+   Base layout
+   ---------------------------------------------------------- */
+
 .main .block-container {
-    padding-top: 2rem;
-    padding-bottom: 2rem;
+    padding-top: var(--space-xl);
+    padding-bottom: var(--space-xl);
     max-width: 1400px;
 }
 
-/* Header - Conservative institutional style */
+* {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+                 Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ----------------------------------------------------------
+   Header
+   ---------------------------------------------------------- */
+
 .app-header {
-    background-color: var(--primary-dark);
+    background: linear-gradient(
+        90deg,
+        var(--primary-dark),
+        #20264a
+    );
     color: white;
-    padding: 1.5rem 2rem;
-    margin: -2rem -2rem 2rem -2rem;
+    padding: var(--space-lg) var(--space-xl);
+    margin: -2rem -2rem var(--space-xl) -2rem;
     border-bottom: 3px solid var(--accent-blue);
 }
 
 .app-header h1 {
-    font-size: 1.95rem;
+    font-size: 1.85rem;
     font-weight: 700;
     margin: 0;
     letter-spacing: -0.02em;
-    color: #ffffff; /* enforce high contrast */
-    opacity: 1 !important; /* ensure visible against background */
-    text-shadow: 0 2px 6px rgba(0,0,0,0.5); /* subtle lift for legibility */
+    color: #ffffff;
 }
 
 .app-header p {
-    margin: 0.5rem 0 0 0;
-    color: #e6eef8; /* lighter subtitle for contrast */
+    margin-top: var(--space-sm);
+    color: #e6eef8;
     font-size: 0.95rem;
     font-weight: 400;
 }
 
-/* Sidebar - Professional styling */
+/* ----------------------------------------------------------
+   Sidebar
+   ---------------------------------------------------------- */
+
 [data-testid="stSidebar"] {
     background-color: var(--bg-light);
     border-right: 1px solid var(--border-color);
@@ -58,29 +89,33 @@
     background-color: var(--bg-light);
 }
 
-/* User profile section */
-.user-profile {
-    background-color: var(--bg-white);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    padding: 1rem;
-    margin-bottom: 1.5rem;
-}
-
-.user-profile h4 {
-    font-size: 0.875rem;
+/* Sidebar section rhythm */
+.section-header {
+    font-size: 0.8rem;
     font-weight: 600;
     color: var(--text-secondary);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 0.75rem;
+    letter-spacing: 0.06em;
+    margin-top: var(--space-lg);
+    margin-bottom: var(--space-sm);
+}
+
+/* ----------------------------------------------------------
+   User profile
+   ---------------------------------------------------------- */
+
+.user-profile {
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: var(--space-md);
+    margin-bottom: var(--space-lg);
 }
 
 .user-name {
     font-size: 1rem;
     font-weight: 600;
     color: var(--text-primary);
-    margin-bottom: 0.25rem;
 }
 
 .user-email {
@@ -88,54 +123,42 @@
     color: var(--text-secondary);
 }
 
-/* Section headers */
-.section-header {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-top: 1.5rem;
-    margin-bottom: 0.75rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--border-color);
-}
+/* ----------------------------------------------------------
+   Cards & containers
+   ---------------------------------------------------------- */
 
-/* Info cards - Institutional style */
 .info-card {
     background-color: var(--bg-white);
     border: 1px solid var(--border-color);
     border-left: 4px solid var(--accent-blue);
-    border-radius: 4px;
-    padding: 1.5rem;
-    margin: 1.5rem 0;
+    border-radius: var(--radius-sm);
+    padding: var(--space-lg);
+    margin: var(--space-lg) 0;
 }
 
 .info-card h3 {
-    font-size: 1.125rem;
+    font-size: 1.05rem;
     font-weight: 600;
     color: var(--text-primary);
-    margin: 0 0 1rem 0;
-}
-
-.info-card ul {
-    margin: 0.75rem 0;
-    padding-left: 1.5rem;
+    margin-bottom: var(--space-md);
 }
 
 .info-card li {
     color: var(--text-secondary);
-    margin-bottom: 0.5rem;
+    margin-bottom: var(--space-sm);
     line-height: 1.5;
 }
 
-/* Authentication page - Professional */
+/* ----------------------------------------------------------
+   Authentication page
+   ---------------------------------------------------------- */
+
 .auth-container {
     max-width: 600px;
     margin: 4rem auto;
     background-color: var(--bg-white);
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     padding: 3rem;
     text-align: center;
 }
@@ -143,29 +166,32 @@
 .auth-icon {
     font-size: 3rem;
     color: var(--primary-blue);
-    margin-bottom: 1.5rem;
+    margin-bottom: var(--space-lg);
 }
 
 .auth-title {
-    font-size: 1.75rem;
+    font-size: 1.65rem;
     font-weight: 600;
     color: var(--text-primary);
-    margin-bottom: 0.75rem;
 }
 
 .auth-subtitle {
     color: var(--text-secondary);
     font-size: 1rem;
-    margin-bottom: 2rem;
+    margin-top: var(--space-sm);
     line-height: 1.6;
 }
 
-/* Buttons - Conservative styling */
+/* ----------------------------------------------------------
+   Buttons
+   ---------------------------------------------------------- */
+
 .stButton > button {
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     font-weight: 500;
-    transition: all 0.2s ease;
     border: 1px solid var(--border-color);
+    transition: background-color 0.15s ease,
+                border-color 0.15s ease;
 }
 
 .stButton > button:hover {
@@ -176,6 +202,7 @@
 .stButton > button[kind="primary"] {
     background-color: var(--primary-blue);
     border-color: var(--primary-blue);
+    color: #ffffff;
 }
 
 .stButton > button[kind="primary"]:hover {
@@ -183,22 +210,28 @@
     border-color: var(--primary-dark);
 }
 
-/* Data tables */
+/* ----------------------------------------------------------
+   Tables
+   ---------------------------------------------------------- */
+
 .dataframe {
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
 }
 
 .dataframe th {
     background-color: var(--bg-light);
     color: var(--text-primary);
     font-weight: 600;
-    font-size: 0.875rem;
+    font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
 
-/* Status messages - Institutional colors */
+/* ----------------------------------------------------------
+   Status messages
+   ---------------------------------------------------------- */
+
 .stSuccess {
     background-color: #f0fdf4;
     border-left: 4px solid var(--success-green);
@@ -223,57 +256,41 @@
     color: var(--primary-blue);
 }
 
-/* Footer - Professional */
+/* ----------------------------------------------------------
+   Expanders, code, progress
+   ---------------------------------------------------------- */
+
+.streamlit-expanderHeader {
+    background-color: var(--bg-light);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-weight: 500;
+}
+
+.stCodeBlock {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background-color: var(--bg-light);
+}
+
+.stProgress > div > div {
+    background-color: var(--accent-blue);
+}
+
+/* ----------------------------------------------------------
+   Footer
+   ---------------------------------------------------------- */
+
 .footer {
     border-top: 1px solid var(--border-color);
-    padding: 2rem 0 1rem 0;
+    padding: var(--space-xl) 0 var(--space-md);
     margin-top: 3rem;
     text-align: center;
     color: var(--text-secondary);
-    font-size: 0.875rem;
+    font-size: 0.85rem;
 }
 
 .footer-title {
     font-weight: 600;
     color: var(--text-primary);
-    margin-bottom: 0.5rem;
-}
-
-.footer-meta {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    margin-top: 0.75rem;
-}
-
-/* Download buttons */
-.download-section {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-    margin-top: 1.5rem;
-}
-
-/* Code blocks */
-.stCodeBlock {
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    background-color: var(--bg-light);
-}
-
-/* Expander - Institutional */
-.streamlit-expanderHeader {
-    background-color: var(--bg-light);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    font-weight: 500;
-}
-
-/* Progress bar */
-.stProgress > div > div {
-    background-color: var(--accent-blue);
-}
-
-/* Remove playful elements */
-* {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
