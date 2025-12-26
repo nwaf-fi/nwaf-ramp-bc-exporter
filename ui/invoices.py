@@ -53,6 +53,15 @@ def render_invoices_tab(cfg, env):
                     # Filter out already-synced for preview too
                     bills_preview = [b for b in bills if not client.is_transaction_synced(b)]
 
+                    # Exclude items previously marked synced in-session (optimistic client-side filter)
+                    synced_inv_ids = set(st.session_state.get('synced_invoices', []))
+                    if synced_inv_ids:
+                        before_local = len(bills_preview)
+                        bills_preview = [b for b in bills_preview if b.get('id') not in synced_inv_ids]
+                        local_filtered = before_local - len(bills_preview)
+                        if local_filtered:
+                            st.info(f"{local_filtered} bills excluded because they were previously marked synced in this session.")
+
                     # Enrich bills with vendor external ids from the Vendors API so
                     # 'Buy-from Vendor No.' is populated from vendor.external_id (authoritative)
                     try:
@@ -140,6 +149,15 @@ def render_invoices_tab(cfg, env):
                 skipped = before - after
                 if skipped:
                     st.info(f"Skipped {skipped} bills already marked synced in Ramp")
+
+                # Exclude items previously marked synced in-session
+                synced_inv_ids = set(st.session_state.get('synced_invoices', []))
+                if synced_inv_ids:
+                    before_local = len(bills)
+                    bills = [b for b in bills if b.get('id') not in synced_inv_ids]
+                    local_filtered = before_local - len(bills)
+                    if local_filtered:
+                        st.info(f"{local_filtered} bills excluded because they were previously marked synced in this session.")
 
                 # Enrich bills with vendor external ids from Vendors API to populate
                 # Buy-from Vendor No. (prefer vendor.external_vendor_id_resolved)
