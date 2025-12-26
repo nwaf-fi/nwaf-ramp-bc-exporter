@@ -35,8 +35,8 @@ def main():
     start_str = start_date.strftime('%Y-%m-%d')
     end_str = end_date.strftime('%Y-%m-%d')
 
-    print(f'Fetching PAID bills from {start_str} to {end_str}...')
-    bills = client.get_bills(status='PAID', start_date=start_str, end_date=end_str, page_size=cfg['ramp'].get('page_size',200))
+    print(f'Fetching PAID bills from {start_str} to {end_str} (only sync-ready)...')
+    bills = client.get_bills(status='PAID', start_date=start_str, end_date=end_str, page_size=cfg['ramp'].get('page_size',200), sync_ready=True)
     print(f'Fetched {len(bills)} bills')
 
     os.makedirs('exports', exist_ok=True)

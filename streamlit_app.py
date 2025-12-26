@@ -409,7 +409,8 @@ def fetch_data_for_type(client, data_type, start_date, end_date, cfg):
             status=cfg['ramp'].get('status_filter'),
             start_date=start_date,
             end_date=end_date,
-            page_size=cfg['ramp'].get('page_size', 200)
+            page_size=cfg['ramp'].get('page_size', 200),
+            has_no_sync_commits=True
         )
         # Filter out already-synced items when possible
         if isinstance(data, list) and data:
@@ -425,7 +426,8 @@ def fetch_data_for_type(client, data_type, start_date, end_date, cfg):
             status='PAID',
             start_date=start_date,
             end_date=end_date,
-            page_size=cfg['ramp'].get('page_size', 200)
+            page_size=cfg['ramp'].get('page_size', 200),
+            sync_ready=True
         )
         if isinstance(data, list) and data:
             before = len(data)
@@ -439,7 +441,8 @@ def fetch_data_for_type(client, data_type, start_date, end_date, cfg):
             status='PAID',
             start_date=start_date,
             end_date=end_date,
-            page_size=cfg['ramp'].get('page_size', 200)
+            page_size=cfg['ramp'].get('page_size', 200),
+            has_no_sync_commits=True
         )
         if isinstance(data, list) and data:
             before = len(data)

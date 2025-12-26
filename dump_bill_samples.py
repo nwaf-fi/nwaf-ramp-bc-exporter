@@ -41,8 +41,8 @@ def main():
     start_str = start_date.strftime('%Y-%m-%d')
     end_str = end_date.strftime('%Y-%m-%d')
 
-    print(f'Fetching PAID bills from {start_str} to {end_str} (read-only)...')
-    bills = client.get_bills(status='PAID', start_date=start_str, end_date=end_str, page_size=100)
+    print(f'Fetching PAID bills from {start_str} to {end_str} (read-only, sync-ready)...')
+    bills = client.get_bills(status='PAID', start_date=start_str, end_date=end_str, page_size=100, sync_ready=True)
 
     if not bills:
         print('No bills returned by the API in that window.')

@@ -70,34 +70,37 @@ class RampClient:
 
     def get_transactions(self, status: Optional[str] = None,
                         start_date: Optional[str] = None, end_date: Optional[str] = None,
-                        page_size: int = 200) -> List[Dict]:
-        """Fetch transactions from Ramp API"""
-        return self._get_paginated_data("transactions", status, start_date, end_date, page_size)
+                        page_size: int = 200, **extra_params) -> List[Dict]:
+        """Fetch transactions from Ramp API. Accepts extra query parameters such as
+        `has_no_sync_commits=True` to only return transactions that have not been synced."""
+        return self._get_paginated_data("transactions", status, start_date, end_date, page_size, **extra_params)
 
 
     def get_bills(self, status: Optional[str] = None,
                   start_date: Optional[str] = None, end_date: Optional[str] = None,
-                  page_size: int = 200) -> List[Dict]:
-        """Fetch bills from Ramp API"""
-        return self._get_paginated_data("bills", status, start_date, end_date, page_size)
+                  page_size: int = 200, **extra_params) -> List[Dict]:
+        """Fetch bills from Ramp API. Accepts extra query parameters such as
+        `sync_ready=True` to only return bills ready to be synced to ERP."""
+        return self._get_paginated_data("bills", status, start_date, end_date, page_size, **extra_params)
 
     def get_reimbursements(self, status: Optional[str] = None,
                           start_date: Optional[str] = None, end_date: Optional[str] = None,
-                          page_size: int = 200) -> List[Dict]:
-        """Fetch reimbursements from Ramp API"""
-        return self._get_paginated_data("reimbursements", status, start_date, end_date, page_size)
+                          page_size: int = 200, **extra_params) -> List[Dict]:
+        """Fetch reimbursements from Ramp API. Accepts extra query parameters such as
+        `has_no_sync_commits=True` to only return reimbursements not yet synced."""
+        return self._get_paginated_data("reimbursements", status, start_date, end_date, page_size, **extra_params)
 
     def get_cashbacks(self, status: Optional[str] = None,
                       start_date: Optional[str] = None, end_date: Optional[str] = None,
-                      page_size: int = 200) -> List[Dict]:
+                      page_size: int = 200, **extra_params) -> List[Dict]:
         """Fetch cashbacks from Ramp API"""
-        return self._get_paginated_data("cashbacks", status, start_date, end_date, page_size)
+        return self._get_paginated_data("cashbacks", status, start_date, end_date, page_size, **extra_params)
 
     def get_statements(self, status: Optional[str] = None,
                        start_date: Optional[str] = None, end_date: Optional[str] = None,
-                       page_size: int = 200) -> List[Dict]:
+                       page_size: int = 200, **extra_params) -> List[Dict]:
         """Fetch statements from Ramp API"""
-        return self._get_paginated_data("statements", status, start_date, end_date, page_size)
+        return self._get_paginated_data("statements", status, start_date, end_date, page_size, **extra_params)
 
     def get_transfers(self, start_date: Optional[str] = None, end_date: Optional[str] = None,
                       page_size: int = 200) -> List[Dict]:
@@ -245,8 +248,10 @@ class RampClient:
 
     def _get_paginated_data(self, endpoint: str, status: Optional[str] = None,
                            start_date: Optional[str] = None, end_date: Optional[str] = None,
-                           page_size: int = 200) -> List[Dict]:
-        """Generic method for paginated API calls"""
+                           page_size: int = 200, **extra_params) -> List[Dict]:
+        """Generic method for paginated API calls. Any extra keyword args will be
+        added as query string parameters, allowing server-side filtering (e.g.
+        has_no_sync_commits=True or sync_ready=True)."""
         url = urljoin(self.base_url + '/', endpoint.lstrip('/'))
         params = {}
         if status:
@@ -256,6 +261,15 @@ class RampClient:
         if end_date:
             params["end_date"] = end_date
         params["limit"] = page_size
+
+        # Merge extra params into query string (useful for server-side sync filters)
+        if extra_params:
+            for k, v in extra_params.items():
+                # Convert booleans to lowercase strings which Ramp API expects
+                if isinstance(v, bool):
+                    params[k] = str(v).lower()
+                else:
+                    params[k] = v
 
         results: List[Dict] = []
         next_cursor = None
