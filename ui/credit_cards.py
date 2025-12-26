@@ -1,9 +1,10 @@
 import streamlit as st
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
+import os
 from ramp_client import RampClient
 from transform import ramp_credit_card_to_bc_rows
-from utils import _extract_amount
+from utils import _extract_amount, _write_sync_audit
 
 
 def render_credit_cards_tab(cfg, env):
@@ -92,6 +93,56 @@ def render_credit_cards_tab(cfg, env):
                         csv_bytes = df.to_csv(index=False).encode('utf-8')
                         fname = f"v2_cc_statement_journal_{s.replace('-', '')}_{e.replace('-', '')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
                         st.download_button("Download CC Journal (Latest Statement)", data=csv_bytes, file_name=fname, mime='text/csv', key='cc_download_journal')
+
+                        # Post-generation sync actions (enable optional marking of transactions as synced)
+                        cc_cached = fetched
+                        if cc_cached:
+                            st.markdown('---')
+                            st.subheader('Post-generation actions')
+                            st.write(f"{len(cc_cached)} transactions prepared for export (total ${tx_total:,.2f}).")
+
+                            if st.checkbox('Enable marking these transactions as synced (dry-run unless live sync enabled)', value=False, key='cc_enable_mark'):
+                                if not st.session_state.get('cc_confirm_mark'):
+                                    st.checkbox('I confirm: mark exported credit card transactions as synced', value=False, key='cc_confirm_mark')
+                                else:
+                                    if st.button('Mark these transactions as synced in Ramp', key='cc_mark_btn'):
+                                        with st.spinner('Marking transactions as synced...'):
+                                            try:
+                                                client2 = RampClient(
+                                                    base_url=cfg['ramp']['base_url'],
+                                                    token_url=cfg['ramp']['token_url'],
+                                                    client_id=env['RAMP_CLIENT_ID'],
+                                                    client_secret=env['RAMP_CLIENT_SECRET'],
+                                                    enable_sync=st.session_state.get('enable_live_ramp_sync', False)
+                                                )
+                                                client2.authenticate()
+
+                                                sync_ref = f"BC_CCExport_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                                                results = []
+                                                progress = st.progress(0)
+                                                total = len(cc_cached)
+                                                i = 0
+                                                for t in cc_cached:
+                                                    i += 1
+                                                    tid = t.get('id')
+                                                    ok = client2.mark_transaction_synced(tid, sync_reference=sync_ref)
+                                                    results.append({'timestamp': datetime.now().isoformat(), 'transaction_id': tid, 'ok': ok, 'message': ''})
+                                                    progress.progress(i / total)
+
+                                                successes = sum(1 for r in results if r['ok'])
+                                                failures = len(results) - successes
+                                                if st.session_state.get('enable_live_ramp_sync', False):
+                                                    st.success(f"Ramp sync complete: {successes} succeeded, {failures} failed.")
+                                                else:
+                                                    st.info(f"Dry run complete: {successes} would be marked synced (no live requests were sent).")
+
+                                                audit_path = _write_sync_audit(results, sync_ref, user_email=user_email)
+                                                if audit_path:
+                                                    with open(audit_path, 'rb') as f:
+                                                        st.download_button("Download CC sync audit CSV", f, file_name=os.path.basename(audit_path), key='cc_download_sync_audit_csv')
+
+                                            except Exception as e:
+                                                st.error(f"Error marking credit card transactions as synced: {e}")
 
             except Exception as ex:
                 st.error(f"Error fetching statement: {ex}")

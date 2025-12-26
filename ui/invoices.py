@@ -43,10 +43,10 @@ def render_invoices_tab(cfg, env):
                 start_date_str = inv_start.strftime('%Y-%m-%d')
                 end_date_str = inv_end.strftime('%Y-%m-%d')
 
-                bills = client.get_bills(status='APPROVED', start_date=start_date_str, end_date=end_date_str, page_size=cfg['ramp'].get('page_size', 200))
+                bills = client.get_bills(status='PAID', start_date=start_date_str, end_date=end_date_str, page_size=cfg['ramp'].get('page_size', 200))
                 total_bills = len(bills) if isinstance(bills, list) else 0
                 if not bills:
-                    st.info('No approved bills found for the specified period.')
+                    st.info('No paid bills found for the specified period.')
                 else:
                     st.success(f"Retrieved {total_bills} bills (preview)")
 
@@ -124,10 +124,10 @@ def render_invoices_tab(cfg, env):
                 start_date_str = inv_start.strftime('%Y-%m-%d')
                 end_date_str = inv_end.strftime('%Y-%m-%d')
 
-                bills = client.get_bills(status='APPROVED', start_date=start_date_str, end_date=end_date_str, page_size=cfg['ramp'].get('page_size', 200))
+                bills = client.get_bills(status='PAID', start_date=start_date_str, end_date=end_date_str, page_size=cfg['ramp'].get('page_size', 200))
                 total_bills = len(bills) if isinstance(bills, list) else 0
                 if not bills:
-                    st.info('No approved bills found for the specified period.')
+                    st.info('No paid bills found for the specified period.')
                     st.session_state.pop('inv_bills', None)
                     st.stop()
                 

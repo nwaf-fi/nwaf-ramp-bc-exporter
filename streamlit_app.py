@@ -418,7 +418,7 @@ def fetch_data_for_type(client, data_type, start_date, end_date, cfg):
         df = ramp_credit_card_to_bc_rows(data, cfg)
     elif data_type == 'bills':
         data = client.get_bills(
-            status='APPROVED',
+            status='PAID',
             start_date=start_date,
             end_date=end_date,
             page_size=cfg['ramp'].get('page_size', 200)

@@ -105,7 +105,7 @@ def fetch_data_for_type(client: RampClient, data_type: str, start_date: str, end
         df = ramp_to_bc_rows(data, cfg)
     elif data_type == 'bills':
         data = client.get_bills(
-            status='APPROVED',
+            status='PAID',
             start_date=start_date,
             end_date=end_date,
             page_size=cfg['ramp'].get('page_size', 200)
