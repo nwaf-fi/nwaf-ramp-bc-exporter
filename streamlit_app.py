@@ -141,9 +141,10 @@ from ui.credit_cards import render_credit_cards_tab
 with cc_tab:
     render_credit_cards_tab(cfg, env)
 
+from ui.invoices import render_invoices_tab
+
 with inv_tab:
-    st.subheader("Purchase Invoice Export (Bills)")
-    st.write("Generate Purchase Invoices CSV from approved Ramp bills in the selected date range.")
+    render_invoices_tab(cfg, env)
 
     # Local date range inputs for the Invoices panel (defaults to global sidebar dates)
     col_a, col_b = st.columns(2)
@@ -405,9 +406,10 @@ with inv_tab:
                         except Exception as e:
                             st.error(f"Error marking bills as synced: {e}")
 
+from ui.reimbursements import render_reimbursements_tab
+
 with reimb_tab:
-    st.subheader("Reimbursements Export")
-    st.write("Export reimbursements (PAID) as BC general journal rows for the selected date range.")
+    render_reimbursements_tab(cfg, env)
 
     include_audit = st.checkbox("Write reimbursements audit NDJSON (export original objects)", value=False, key='reim_include_audit')
     mark_synced = st.checkbox("Mark exported reimbursements as synced in Ramp (dry-run unless live sync enabled)", value=False, key='reim_mark_synced')
