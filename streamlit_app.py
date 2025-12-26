@@ -131,15 +131,15 @@ with inv_tab:
     # Local date range inputs for the Invoices panel (defaults to global sidebar dates)
     col_a, col_b = st.columns(2)
     with col_a:
-        inv_start = st.date_input("Invoices: Start Date", value=st.session_state.get('inv_start_date', start_date if 'start_date' in globals() else datetime.now().replace(day=1)), key='inv_start')
+        inv_start = st.date_input("Invoices: Start Date", value=st.session_state.get('inv_start_date', start_date if 'start_date' in globals() else datetime.now().replace(day=1)), key='inv_start_master')
     with col_b:
-        inv_end = st.date_input("Invoices: End Date", value=st.session_state.get('inv_end_date', end_date if 'end_date' in globals() else datetime.now()), key='inv_end')
+        inv_end = st.date_input("Invoices: End Date", value=st.session_state.get('inv_end_date', end_date if 'end_date' in globals() else datetime.now()), key='inv_end_master')
 
-    include_audit = st.checkbox("Write audit NDJSON (export original bill objects)", value=False, key='pi_include_audit')
-    confirm_mark = st.checkbox("I confirm: mark exported bills as synced (requires confirmation below)", value=False, key='pi_confirm_mark')
+    include_audit = st.checkbox("Write audit NDJSON (export original bill objects)", value=False, key='pi_include_audit_master')
+    confirm_mark = st.checkbox("I confirm: mark exported bills as synced (requires confirmation below)", value=False, key='pi_confirm_mark_master')
 
     # Offer a non-destructive preview that mirrors the 'Generate' behavior but does not cache or mark
-    if st.button("Preview Purchase Invoices for date range", key='preview_pi_btn'):
+    if st.button("Preview Purchase Invoices for date range", key='preview_pi_btn_master'):
         with st.spinner("Fetching bills for preview..."):
             try:
                 client = RampClient(
@@ -214,14 +214,14 @@ with inv_tab:
                 logging.exception("Preview error: %s", tb)
 
     # Clear previous cached results when date range changes
-    if st.session_state.get('inv_start') != inv_start or st.session_state.get('inv_end') != inv_end:
+    if st.session_state.get('inv_start_master') != inv_start or st.session_state.get('inv_end_master') != inv_end:
         st.session_state.pop('inv_bills', None)
         st.session_state.pop('inv_pi_df', None)
         st.session_state.pop('inv_gj_df', None)
-        st.session_state['inv_start'] = inv_start
-        st.session_state['inv_end'] = inv_end
+        st.session_state['inv_start_master'] = inv_start
+        st.session_state['inv_end_master'] = inv_end
 
-    if st.button("Generate Purchase Invoices for date range", key='gen_pi_btn'):
+    if st.button("Generate Purchase Invoices for date range", key='gen_pi_btn_master'):
         with st.spinner("Fetching bills and preparing export..."):
             try:
                 client = RampClient(
@@ -344,11 +344,11 @@ with inv_tab:
         st.subheader('Post-generation actions')
         st.write(f"{len(bills_cached)} bills prepared for export (total ${st.session_state.get('inv_bill_total', 0.0):,.2f}).")
 
-        if st.checkbox('Enable marking these bills as synced (dry-run unless live sync enabled)', value=False, key='pi_enable_mark'):
+        if st.checkbox('Enable marking these bills as synced (dry-run unless live sync enabled)', value=False, key='pi_enable_mark_master'):
             if not st.session_state.get('pi_confirm_mark'):
                 st.warning('Please check the confirmation checkbox above to enable marking.')
             else:
-                if st.button('Mark these bills as synced in Ramp', key='pi_mark_btn'):
+                if st.button('Mark these bills as synced in Ramp', key='pi_mark_btn_master'):
                     with st.spinner('Marking bills as synced...'):
                         try:
                             client = RampClient(
