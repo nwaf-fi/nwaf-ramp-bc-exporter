@@ -97,18 +97,6 @@ except Exception as e:
     st.stop()
 
 
-# Post-export sync options (defined before tabs so other panels can reference safely)
-st.sidebar.markdown("")
-mark_transactions_after_export = st.sidebar.checkbox(
-    "Mark exported transactions in Ramp as synced",
-    value=False,
-    help="If checked, the app will mark exported transactions as synced in Ramp. This is a dry-run unless 'Enable live Ramp sync' is checked."
-)
-enable_live_ramp_sync = st.sidebar.checkbox(
-    "Enable live Ramp sync (will POST to Ramp)",
-    value=False,
-    help="Enable sending a request to Ramp to mark transactions as synced. Requires accounting:write scope and should be used cautiously."
-)
 
 # --- New: Tabbed exports panel (Credit Cards, Invoices, Reimbursements) ---
 st.markdown("---")
@@ -336,34 +324,50 @@ def run_export(selected_types, start_date, end_date, cfg, env):
                 with open(audit_path, 'rb') as f:
                     st.download_button("Download sync audit CSV", f, file_name=os.path.basename(audit_path))
 
-    # If requested, mark exported transactions in Ramp (dry-run unless live sync enabled)
-    if mark_transactions_after_export and exported_transaction_ids:
-        st.info(f"Preparing to mark {len(exported_transaction_ids)} exported transactions as synced in Ramp...")
-        results = []
-        sync_ref = f"BCExport_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        for tid in exported_transaction_ids:
-            ok = client.mark_transaction_synced(tid, sync_reference=sync_ref)
-            results.append({
-                'timestamp': datetime.now().isoformat(),
-                'transaction_id': tid,
-                'ok': ok,
-                'message': ''
-            })
+    # Post-export actions (mark exported transactions as synced)
+    if exported_transaction_ids:
+        with st.expander('Post-export actions', expanded=False):
+            st.write(f"{len(exported_transaction_ids)} transactions prepared for export (total ${combined_df.iloc[:,1:].sum().sum():,.2f} if available)")
 
-        audit_path = _write_sync_audit(results, sync_ref, user_email=user_email)
+            mark_after_export = st.checkbox('Mark exported transactions in Ramp as synced', value=False, key='run_mark_after_export')
+            enable_live_sync_choice = st.checkbox('Enable live Ramp sync (will POST to Ramp)', value=False, key='run_enable_live_ramp_sync')
 
-        successes = sum(1 for r in results if r['ok'])
-        failures = len(results) - successes
+            if mark_after_export:
+                if not st.session_state.get('run_mark_confirm'):
+                    st.warning('Please check the confirmation checkbox below to enable marking.')
+                    st.checkbox('I confirm: mark exported transactions as synced', value=False, key='run_mark_confirm')
+                else:
+                    if st.button('Mark exported transactions in Ramp', key='run_mark_btn'):
+                        st.info(f"Preparing to mark {len(exported_transaction_ids)} exported transactions as synced in Ramp...")
+                        results = []
+                        sync_ref = f"BCExport_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                        progress = st.progress(0)
+                        total = len(exported_transaction_ids)
+                        i = 0
+                        for tid in exported_transaction_ids:
+                            i += 1
+                            ok = client.mark_transaction_synced(tid, sync_reference=sync_ref)
+                            results.append({
+                                'timestamp': datetime.now().isoformat(),
+                                'transaction_id': tid,
+                                'ok': ok,
+                                'message': ''
+                            })
+                            progress.progress(i/total)
 
-        if st.session_state.get('enable_live_ramp_sync', False):
-            st.success(f"Ramp sync complete: {successes} succeeded, {failures} failed.")
-        else:
-            st.info(f"Dry run complete: {successes} would be marked synced (no live requests were sent).")
+                        successes = sum(1 for r in results if r['ok'])
+                        failures = len(results) - successes
 
-        if audit_path:
-            st.markdown(f"Audit CSV written to `{audit_path}`")
-            with open(audit_path, 'rb') as f:
-                st.download_button("Download sync audit CSV", f, file_name=os.path.basename(audit_path))
+                        if enable_live_sync_choice:
+                            st.success(f"Ramp sync complete: {successes} succeeded, {failures} failed.")
+                        else:
+                            st.info(f"Dry run complete: {successes} would be marked synced (no live requests were sent).")
+
+                        audit_path = _write_sync_audit(results, sync_ref, user_email=user_email)
+                        if audit_path:
+                            st.markdown(f"Audit CSV written to `{audit_path}`")
+                            with open(audit_path, 'rb') as f:
+                                st.download_button("Download sync audit CSV", f, file_name=os.path.basename(audit_path), key='run_download_sync_audit_csv')
 
 def check_available_endpoints(client, cfg):
     """Check which API endpoints are available based on OAuth scopes."""
