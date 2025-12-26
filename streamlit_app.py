@@ -88,31 +88,13 @@ from transform import (ramp_credit_card_to_bc_rows, ramp_bills_to_bc_rows,
                       ramp_bills_to_general_journal)
 from bc_export import export
 
-# Load institutional stylesheet
-def load_css():
-    css_file = os.path.join(os.path.dirname(__file__), 'assets', 'styles.css')
-    if os.path.exists(css_file):
-        with open(css_file) as f:
-            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
-    else:
-        # Fallback inline minimal styles if CSS file not found
-        st.markdown("""
-        <style>
-        .app-header { background-color: #1a1f36; color: white; padding: 1.5rem 2rem; margin: -2rem -2rem 2rem -2rem; border-bottom: 3px solid #3498db; }
-        .app-header h1 { font-size: 1.75rem; font-weight: 600; margin: 0; }
-        .app-header p { margin: 0.5rem 0 0 0; color: #cbd5e0; font-size: 0.95rem; }
-        </style>
-        """, unsafe_allow_html=True)
+from ui.layout import load_css, render_header, render_sidebar
 
+# Apply styles and render the header (layout helpers are extracted into ui/layout.py)
 load_css()
-
-# Institutional header
-st.markdown("""
-<div class="app-header">
-    <h1>Ramp → Business Central Export</h1>
-    <p>Financial Data Integration Platform | Northwest Area Foundation</p>
-</div>
-""", unsafe_allow_html=True)
+render_header()
+# Render sidebar content (user profile and system overview)
+render_sidebar(user_name, user_email)
 
 # Load configuration
 try:
