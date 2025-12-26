@@ -58,24 +58,6 @@ user_name, user_email = ensure_authenticated()
 
 # `user_name` and `user_email` are provided by ensure_authenticated() (auth.azure_auth)
 
-# Enhanced sidebar user profile
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 👤 User Profile")
-st.sidebar.success(f"**{user_name}**")
-if user_email and user_email != user_name:
-    st.sidebar.caption(f"📧 {user_email}")
-st.sidebar.markdown("---")
-
-# Logout action clears the session token and optionally provides Azure logout link
-if st.sidebar.button("🚪 Log out", use_container_width=True):
-    st.session_state.pop(SESSION_TOKEN_KEY, None)
-    st.query_params.clear()
-    logout_url = (
-        f"https://login.microsoftonline.com/common/oauth2/v2.0/logout?post_logout_redirect_uri={REDIRECT_URI}"
-    )
-    st.success("✅ You have been logged out successfully.")
-    st.markdown(f"[🔐 Sign in again]({logout_url})")
-    st.stop()
 
 # Add current directory to path so we can import our modules
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
