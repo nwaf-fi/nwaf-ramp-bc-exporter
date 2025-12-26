@@ -173,11 +173,11 @@ class RampClient:
 
     def mark_transaction_synced_with_message(self, transaction_id: str, sync_reference: str = None):
         """
-        Mark a transaction as synced to Business Central and return a tuple: (ok: bool, message: str).
+        Mark a transaction as synced to Business Central using the canonical
+        `/developer/v1/accounting/syncs` endpoint and return a tuple: (ok: bool, message: str).
 
-        Tries multiple candidate endpoints to be resilient to base_url path differences and
-        different Ramp API surfaces. Returns a helpful message including status and endpoint
-        tried for diagnostics.
+        The request payload uses the transactions-array shape and we log the endpoint,
+        payload (truncated), and response (status + truncated body) to aid diagnostics.
         """
         # Dry run behavior: avoid accidental writes
         if not getattr(self, 'enable_sync', False):
@@ -185,54 +185,49 @@ class RampClient:
             print(f"🔍 {msg}")
             return True, msg
 
-        data = {"synced": True, "sync_system": "business_central"}
-        if sync_reference:
-            data["sync_reference"] = sync_reference
-
-        # Build candidates smartly to avoid duplicating 'developer/v1' if already present in base_url
+        # Build canonical endpoint (prefer developer/v1 accounting syncs)
         base = self.base_url.rstrip('/')
-        candidates = []
         if 'developer/v1' in base:
-            # base already includes developer/v1 - prefer the accounting path relative to that
-            candidates = [
-                urljoin(base + '/', "accounting/syncs"),
-                urljoin(base + '/', f"transactions/{transaction_id}/sync"),
-            ]
+            endpoint = urljoin(base + '/', 'accounting/syncs')
         else:
-            # Try canonical developer path first, then fallback to shorter paths
-            candidates = [
-                urljoin(base + '/', "developer/v1/accounting/syncs"),
-                urljoin(base + '/', "accounting/syncs"),
-                urljoin(base + '/', f"transactions/{transaction_id}/sync"),
-                urljoin(base + '/', f"developer/v1/transactions/{transaction_id}/sync"),
+            endpoint = urljoin(base + '/', 'developer/v1/accounting/syncs')
+
+        payload = {
+            'transactions': [
+                {
+                    'transaction_id': transaction_id,
+                    'synced': True,
+                    'sync_system': 'business_central'
+                }
             ]
+        }
+        if sync_reference:
+            payload['transactions'][0]['sync_reference'] = sync_reference
 
-        last_msg = None
-        for endpoint in candidates:
+        # Debug/logging for diagnostics (truncated payload)
+        try:
+            pstr = str(payload)
+        except Exception:
+            pstr = '<unserializable-payload>'
+        print(f"🔁 Sync POST -> {endpoint} payload={pstr[:1000]}")
+
+        try:
+            resp = self.session.post(endpoint, json=payload, timeout=10)
+            status = resp.status_code
             try:
-                # Some endpoints expect the transaction id in the body, others use the path
-                if endpoint.rstrip('/').endswith(f"transactions/{transaction_id}/sync"):
-                    payload = data
-                else:
-                    payload = {**data, "transaction_id": transaction_id}
-
-                resp = self.session.post(endpoint, json=payload, timeout=10)
-                if 200 <= resp.status_code < 300:
-                    return True, f"{resp.status_code} at {endpoint}"
-                # capture diagnostic message
+                body = resp.text
+            except Exception:
                 body = ''
-                try:
-                    body = resp.text
-                except Exception:
-                    pass
-                last_msg = f"{resp.status_code} at {endpoint}: {body[:1000]}"
-                # try next candidate if not successful
-            except Exception as ex:
-                last_msg = str(ex)
-                # try next candidate
-                continue
-
-        return False, last_msg or "No endpoint succeeded"
+            body_snip = (body or '')[:1000]
+            if 200 <= status < 300:
+                print(f"✅ Sync success {status} at {endpoint}")
+                return True, f"{status} at {endpoint}"
+            else:
+                print(f"❌ Sync failed {status} at {endpoint}: {body_snip}")
+                return False, f"{status} at {endpoint}: {body_snip}"
+        except Exception as ex:
+            print(f"❌ Sync exception at {endpoint}: {ex}")
+            return False, str(ex)
 
     def is_transaction_synced(self, transaction: Dict) -> bool:
         """Heuristic check whether a transaction object is already marked as synced.
