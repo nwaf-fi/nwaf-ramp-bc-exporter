@@ -1,7 +1,11 @@
 
+import logging
 import requests
 from typing import Dict, List, Optional
 from urllib.parse import urljoin
+from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 class RampClient:
     def __init__(self, base_url: str, token_url: str, client_id: str, client_secret: str, enable_sync: bool = False):
@@ -11,6 +15,7 @@ class RampClient:
         self.client_secret = client_secret
         self.session = requests.Session()
         self._token = None
+        self.token_expires_at = None  # UTC datetime when token expires
         # When enable_sync is True, mark_transaction_synced will perform a POST against
         # Ramp's sync endpoint. Default is False to avoid accidental writes.
         self.enable_sync = enable_sync
@@ -38,6 +43,11 @@ class RampClient:
             pass
 
         last_exc = None
+        # If we already have a valid token, return it
+        if self._token and self.token_expires_at and datetime.utcnow() < (self.token_expires_at - timedelta(seconds=30)):
+            logger.debug("Using cached OAuth token (valid)")
+            return self._token
+
         for url in candidates:
             tried.append(url)
             try:
@@ -51,22 +61,45 @@ class RampClient:
                 data = resp.json()
                 self._token = data.get("access_token")
                 self.granted_scopes = data.get("scope", "")
-                print(f"🔑 OAuth token granted from {url} with scopes: {self.granted_scopes}")
+                expires_in = data.get("expires_in")
+                if expires_in:
+                    # Record expiry time (UTC) and apply a small buffer
+                    self.token_expires_at = datetime.utcnow() + timedelta(seconds=int(expires_in))
+                else:
+                    self.token_expires_at = None
+
+                logger.info(f"🔑 OAuth token granted from {url} with scopes: {self.granted_scopes}")
                 self.session.headers.update({"Authorization": f"Bearer {self._token}"})
                 return self._token
             except Exception as ex:
                 last_exc = ex
                 # Log and try next candidate
-                print(f"Auth attempt to {url} failed: {ex}")
+                logger.warning(f"Auth attempt to {url} failed: {ex}")
 
         # If we get here, all attempts failed
-        print("Failed to obtain OAuth token. Tried the following token endpoints:")
+        logger.error("Failed to obtain OAuth token. Tried the following token endpoints:")
         for t in tried:
-            print(f" - {t}")
+            logger.error(f" - {t}")
         # Re-raise the last exception to let callers handle it if desired
         if last_exc:
             raise last_exc
         raise RuntimeError("Unable to obtain OAuth token; no token endpoint succeeded")
+
+    def token_valid(self) -> bool:
+        """Return True if a cached token exists and is not close to expiry."""
+        if not self._token:
+            return False
+        if not self.token_expires_at:
+            # No expiry info -> assume it's valid (conservative)
+            return True
+        return datetime.utcnow() < (self.token_expires_at - timedelta(seconds=30))
+
+    def ensure_authenticated(self):
+        """Ensure there is a valid token available, performing authentication only when required."""
+        if self.token_valid():
+            logger.debug("Token already valid; skipping re-authentication")
+            return self._token
+        return self.authenticate()
 
     def get_transactions(self, status: Optional[str] = None,
                         start_date: Optional[str] = None, end_date: Optional[str] = None,

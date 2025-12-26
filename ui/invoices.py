@@ -31,14 +31,7 @@ def render_invoices_tab(cfg, env):
     if st.button("Preview Purchase Invoices for date range", key='preview_pi_btn'):
         with st.spinner("Fetching bills for preview..."):
             try:
-                client = RampClient(
-                    base_url=cfg['ramp']['base_url'],
-                    token_url=cfg['ramp']['token_url'],
-                    client_id=env['RAMP_CLIENT_ID'],
-                    client_secret=env['RAMP_CLIENT_SECRET'],
-                    enable_sync=False
-                )
-                client.authenticate()
+                client = get_ramp_client(cfg, env, enable_sync=False)
 
                 start_date_str = inv_start.strftime('%Y-%m-%d')
                 end_date_str = inv_end.strftime('%Y-%m-%d')
@@ -112,14 +105,7 @@ def render_invoices_tab(cfg, env):
     if st.button("Generate Purchase Invoices for date range", key='gen_pi_btn'):
         with st.spinner("Fetching bills and preparing export..."):
             try:
-                client = RampClient(
-                    base_url=cfg['ramp']['base_url'],
-                    token_url=cfg['ramp']['token_url'],
-                    client_id=env['RAMP_CLIENT_ID'],
-                    client_secret=env['RAMP_CLIENT_SECRET'],
-                    enable_sync=st.session_state.get('enable_live_ramp_sync', False)
-                )
-                client.authenticate()
+                client = get_ramp_client(cfg, env, enable_sync=st.session_state.get('enable_live_ramp_sync', False))
 
                 start_date_str = inv_start.strftime('%Y-%m-%d')
                 end_date_str = inv_end.strftime('%Y-%m-%d')
@@ -235,14 +221,7 @@ def render_invoices_tab(cfg, env):
                             if st.button('Mark these bills as synced in Ramp', key='pi_mark_btn'):
                                 with st.spinner('Marking bills as synced...'):
                                     try:
-                                        client = RampClient(
-                                            base_url=cfg['ramp']['base_url'],
-                                            token_url=cfg['ramp']['token_url'],
-                                            client_id=env['RAMP_CLIENT_ID'],
-                                            client_secret=env['RAMP_CLIENT_SECRET'],
-                                            enable_sync=st.session_state.get('enable_live_ramp_sync', False)
-                                        )
-                                        client.authenticate()
+                                        client = get_ramp_client(cfg, env, enable_sync=st.session_state.get('enable_live_ramp_sync', False))
 
                                         sync_ref = f"BC_BillExport_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
                                         results = []

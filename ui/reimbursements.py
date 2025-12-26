@@ -4,9 +4,8 @@ from datetime import datetime
 from io import BytesIO
 import json
 
-from ramp_client import RampClient
 from transform import ramp_reimbursements_to_bc_rows
-from utils import _write_sync_audit
+from utils import _write_sync_audit, get_ramp_client
 
 
 def render_reimbursements_tab(cfg, env):
@@ -27,14 +26,7 @@ def render_reimbursements_tab(cfg, env):
     if st.button("Preview Reimbursements for date range", key='preview_reim_btn'):
         with st.spinner("Fetching reimbursements for preview..."):
             try:
-                client = RampClient(
-                    base_url=cfg['ramp']['base_url'],
-                    token_url=cfg['ramp']['token_url'],
-                    client_id=env['RAMP_CLIENT_ID'],
-                    client_secret=env['RAMP_CLIENT_SECRET'],
-                    enable_sync=False
-                )
-                client.authenticate()
+                client = get_ramp_client(cfg, env, enable_sync=False)
                 start_date_str = reim_start.strftime('%Y-%m-%d')
                 end_date_str = reim_end.strftime('%Y-%m-%d')
                 reims = client.get_reimbursements(status='PAID', start_date=start_date_str, end_date=end_date_str, page_size=cfg['ramp'].get('page_size', 200))
@@ -89,14 +81,7 @@ def render_reimbursements_tab(cfg, env):
     if st.button("Generate Reimbursements for date range"):
         with st.spinner("Fetching reimbursements and preparing export..."):
             try:
-                client = RampClient(
-                    base_url=cfg['ramp']['base_url'],
-                    token_url=cfg['ramp']['token_url'],
-                    client_id=env['RAMP_CLIENT_ID'],
-                    client_secret=env['RAMP_CLIENT_SECRET'],
-                    enable_sync=st.session_state.get('enable_live_ramp_sync', False)
-                )
-                client.authenticate()
+                client = get_ramp_client(cfg, env, enable_sync=st.session_state.get('enable_live_ramp_sync', False))
                 start_date_str = reim_start.strftime('%Y-%m-%d')
                 end_date_str = reim_end.strftime('%Y-%m-%d')
                 reims = client.get_reimbursements(status='PAID', start_date=start_date_str, end_date=end_date_str, page_size=cfg['ramp'].get('page_size', 200))

@@ -83,3 +83,51 @@ def _write_sync_audit(results: list, sync_ref: str, user_email: str = '') -> str
         return fname
     except Exception:
         return ''
+
+
+def get_ramp_client(cfg: dict, env: dict, enable_sync: bool = False, force_reauth: bool = False):
+    """Return a singleton RampClient stored in Streamlit session state.
+
+    - Reuses the same client across reruns to avoid repeated authentication.
+    - If force_reauth is True, clears cached token and forces a new authentication.
+    """
+    try:
+        import streamlit as st
+    except Exception:
+        # Not running in Streamlit context; return a fresh client (useful for tests)
+        from ramp_client import RampClient
+        client = RampClient(
+            base_url=cfg['ramp']['base_url'],
+            token_url=cfg['ramp']['token_url'],
+            client_id=env['RAMP_CLIENT_ID'],
+            client_secret=env['RAMP_CLIENT_SECRET'],
+            enable_sync=enable_sync
+        )
+        if force_reauth:
+            client._token = None
+            client.token_expires_at = None
+        client.ensure_authenticated()
+        return client
+
+    from ramp_client import RampClient
+
+    key = 'ramp_client'
+    if key not in st.session_state:
+        st.session_state[key] = RampClient(
+            base_url=cfg['ramp']['base_url'],
+            token_url=cfg['ramp']['token_url'],
+            client_id=env['RAMP_CLIENT_ID'],
+            client_secret=env['RAMP_CLIENT_SECRET'],
+            enable_sync=enable_sync
+        )
+    client = st.session_state[key]
+    # Keep the enable_sync flag up-to-date with UI setting
+    client.enable_sync = enable_sync
+
+    if force_reauth:
+        client._token = None
+        client.token_expires_at = None
+
+    # Ensure auth if required (may reuse cached token)
+    client.ensure_authenticated()
+    return client

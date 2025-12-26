@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from ramp_client import RampClient
 from transform import ramp_credit_card_to_bc_rows
-from utils import _extract_amount
+from utils import _extract_amount, get_ramp_client
 
 
 def render_credit_cards_tab(cfg, env):
@@ -15,14 +15,7 @@ def render_credit_cards_tab(cfg, env):
     if auto_fetch:
         with st.spinner("Authenticating and fetching latest statement..."):
             try:
-                client = RampClient(
-                    base_url=cfg['ramp']['base_url'],
-                    token_url=cfg['ramp']['token_url'],
-                    client_id=env['RAMP_CLIENT_ID'],
-                    client_secret=env['RAMP_CLIENT_SECRET'],
-                    enable_sync=st.session_state.get('enable_live_ramp_sync', False)
-                )
-                client.authenticate()
+                client = get_ramp_client(cfg, env, enable_sync=st.session_state.get('enable_live_ramp_sync', False))
 
                 stmts = client.get_statements()
                 if not stmts:
