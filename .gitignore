@@ -6,3 +6,6 @@ exports/*.xlsx
 exports/*.csv
 ramp_transactions.json
 .streamlit/secrets.toml
+
+# Private ERP configs (do not commit)
+ERP_Config/
