@@ -137,8 +137,8 @@ def render_credit_cards_tab(cfg, env):
                                             for t in cc_cached:
                                                 i += 1
                                                 tid = t.get('id')
-                                                ok = marker.mark_transaction_synced(tid, sync_reference=sync_ref)
-                                                results.append({'timestamp': datetime.now().isoformat(), 'transaction_id': tid, 'ok': ok, 'message': ''})
+                                                ok, msg = marker.mark_transaction_synced_with_message(tid, sync_reference=sync_ref)
+                                                results.append({'timestamp': datetime.now().isoformat(), 'transaction_id': tid, 'ok': ok, 'message': msg})
                                                 progress.progress(i / total)
 
                                             successes = sum(1 for r in results if r['ok'])

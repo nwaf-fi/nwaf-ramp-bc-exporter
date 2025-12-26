@@ -165,30 +165,45 @@ class RampClient:
             return []
 
     def mark_transaction_synced(self, transaction_id: str, sync_reference: str = None) -> bool:
+        """Convenience wrapper that returns only a boolean success flag.
+        Delegates to `mark_transaction_synced_with_message` which provides diagnostics.
         """
-        Mark a transaction as synced to Business Central.
-        This would typically update transaction metadata to indicate sync status.
-        
-        NOTE: Currently in testing mode - does not actually update Ramp.
-        Requires accounting:write scope to be enabled.
-        """
-        # If not enabled, behave as dry-run so we don't update production accidentally
-        if not getattr(self, 'enable_sync', False):
-            print(f"🔍 [DRY RUN] Would mark transaction {transaction_id} as synced (sync_reference: {sync_reference})")
-            return True
+        ok, _ = self.mark_transaction_synced_with_message(transaction_id, sync_reference)
+        return ok
 
-        # PRODUCTION: attempt to call Ramp API to mark sync status
+    def mark_transaction_synced_with_message(self, transaction_id: str, sync_reference: str = None):
+        """
+        Mark a transaction as synced to Business Central and return a tuple: (ok: bool, message: str).
+
+        The message contains details useful for debugging (status code and truncated response body, or error text).
+        When `enable_sync` is False, this behaves as a dry-run and returns (True, "[DRY RUN] ...").
+        """
+        # Dry run behavior: avoid accidental writes
+        if not getattr(self, 'enable_sync', False):
+            msg = f"[DRY RUN] Would mark transaction {transaction_id} as synced (sync_reference: {sync_reference})"
+            print(f"🔍 {msg}")
+            return True, msg
+
         url = f"{self.base_url}/transactions/{transaction_id}/sync"
         data = {"synced": True, "sync_system": "business_central"}
         if sync_reference:
             data["sync_reference"] = sync_reference
 
         try:
-            resp = self.session.post(url, json=data)
-            # Consider 200/201/204 as success
-            return resp.status_code >= 200 and resp.status_code < 300
-        except Exception:
-            return False
+            resp = self.session.post(url, json=data, timeout=10)
+            ok = 200 <= resp.status_code < 300
+            # Provide some response text for failures to aid debugging
+            if ok:
+                return True, f"{resp.status_code}"
+            else:
+                body = ''
+                try:
+                    body = resp.text
+                except Exception:
+                    pass
+                return False, f"{resp.status_code} {body[:1000]}"
+        except Exception as ex:
+            return False, str(ex)
 
     def is_transaction_synced(self, transaction: Dict) -> bool:
         """Heuristic check whether a transaction object is already marked as synced.

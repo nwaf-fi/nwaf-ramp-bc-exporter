@@ -272,8 +272,8 @@ def render_invoices_tab(cfg, env):
                                         for b in bills_cached:
                                             i += 1
                                             tid = b.get('id')
-                                            ok = client.mark_transaction_synced(tid, sync_reference=sync_ref)
-                                            results.append({'timestamp': datetime.now().isoformat(), 'transaction_id': tid, 'ok': ok, 'message': ''})
+                                            ok, msg = client.mark_transaction_synced_with_message(tid, sync_reference=sync_ref)
+                                            results.append({'timestamp': datetime.now().isoformat(), 'transaction_id': tid, 'ok': ok, 'message': msg})
                                             progress.progress(i / total)
 
                                         successes = sum(1 for r in results if r['ok'])
