@@ -47,6 +47,35 @@ def render_reimbursements_tab(cfg, env):
                     # Filter already-synced
                     reims_preview = [r for r in reims if not client.is_transaction_synced(r)]
 
+                    # Additional date filtering: Ramp APIs may apply different date fields; ensure we only include reimbursements whose
+                    # relevant date falls within the selected start/end (inclusive). Prefer 'paid_at' then 'posted_at', then 'created_at'.
+                    def _reim_date_str(r):
+                        for k in ('paid_at', 'posted_at', 'created_at'):
+                            v = r.get(k)
+                            if v:
+                                return v[:10]
+                        return None
+
+                    filtered = []
+                    filtered_out = 0
+                    for r in reims_preview:
+                        ds = _reim_date_str(r)
+                        if ds:
+                            try:
+                                d = datetime.fromisoformat(ds).date()
+                                if d >= reim_start and d <= reim_end:
+                                    filtered.append(r)
+                                else:
+                                    filtered_out += 1
+                            except Exception:
+                                # If parsing fails, keep the reimbursement to be safe
+                                filtered.append(r)
+                        else:
+                            # No date available — keep for manual inspection
+                            filtered.append(r)
+
+                    reims_preview = filtered
+
                     r_df = ramp_reimbursements_to_bc_rows(reims_preview, cfg)
 
                     # totals
@@ -60,6 +89,9 @@ def render_reimbursements_tab(cfg, env):
                                 reim_total += float(amt)
                             except Exception:
                                 pass
+
+                    if filtered_out:
+                        st.info(f"{filtered_out} reimbursements were excluded because their dates fall outside the selected range.")
 
                     rdf_total = r_df['Debit Amount'].sum() if r_df is not None and not r_df.empty and 'Debit Amount' in r_df.columns else 0.0
                     st.write(f"Reimbursements count after filtering: **{len(reims_preview)}**  — Total amount: **${reim_total:,.2f}**")
@@ -115,6 +147,34 @@ def render_reimbursements_tab(cfg, env):
                 skipped = before - after
                 if skipped:
                     st.info(f"Skipped {skipped} reimbursements already marked synced in Ramp")
+
+                # Additional date filtering (prefer 'paid_at', 'posted_at', then 'created_at')
+                def _reim_date_str(r):
+                    for k in ('paid_at', 'posted_at', 'created_at'):
+                        v = r.get(k)
+                        if v:
+                            return v[:10]
+                    return None
+
+                filtered = []
+                filtered_out = 0
+                for r in reims:
+                    ds = _reim_date_str(r)
+                    if ds:
+                        try:
+                            d = datetime.fromisoformat(ds).date()
+                            if d >= reim_start and d <= reim_end:
+                                filtered.append(r)
+                            else:
+                                filtered_out += 1
+                        except Exception:
+                            filtered.append(r)
+                    else:
+                        filtered.append(r)
+
+                reims = filtered
+                if filtered_out:
+                    st.info(f"{filtered_out} reimbursements were excluded because their dates fall outside the selected range.")
 
                 r_df = ramp_reimbursements_to_bc_rows(reims, cfg)
 
