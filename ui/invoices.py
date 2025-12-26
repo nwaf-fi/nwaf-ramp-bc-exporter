@@ -20,15 +20,15 @@ def render_invoices_tab(cfg, env):
     # Local date range inputs for the Invoices panel (defaults to global sidebar dates)
     col_a, col_b = st.columns(2)
     with col_a:
-        inv_start = st.date_input("Invoices: Start Date", value=st.session_state.get('inv_start_date', datetime.now().replace(day=1)), key='inv_start')
+        inv_start = st.date_input("Invoices: Start Date", value=st.session_state.get('inv_start_date', datetime.now().replace(day=1)), key='invoices_inv_start')
     with col_b:
-        inv_end = st.date_input("Invoices: End Date", value=st.session_state.get('inv_end_date', datetime.now()), key='inv_end')
+        inv_end = st.date_input("Invoices: End Date", value=st.session_state.get('inv_end_date', datetime.now()), key='invoices_inv_end')
 
-    include_audit = st.checkbox("Write audit NDJSON (export original bill objects)", value=False, key='pi_include_audit')
-    confirm_mark = st.checkbox("I confirm: mark exported bills as synced (requires confirmation below)", value=False, key='pi_confirm_mark')
+    include_audit = st.checkbox("Write audit NDJSON (export original bill objects)", value=False, key='invoices_pi_include_audit')
+    confirm_mark = st.checkbox("I confirm: mark exported bills as synced (requires confirmation below)", value=False, key='invoices_pi_confirm_mark')
 
     # Offer a non-destructive preview that mirrors the 'Generate' behavior but does not cache or mark
-    if st.button("Preview Purchase Invoices for date range", key='preview_pi_btn'):
+    if st.button("Preview Purchase Invoices for date range", key='invoices_preview_pi_btn'):
         with st.spinner("Fetching bills for preview..."):
             try:
                 client = RampClient(
@@ -109,7 +109,7 @@ def render_invoices_tab(cfg, env):
         st.session_state['inv_start'] = inv_start
         st.session_state['inv_end'] = inv_end
 
-    if st.button("Generate Purchase Invoices for date range", key='gen_pi_btn'):
+    if st.button("Generate Purchase Invoices for date range", key='invoices_gen_pi_btn'):
         with st.spinner("Fetching bills and preparing export..."):
             try:
                 client = RampClient(
@@ -191,7 +191,7 @@ def render_invoices_tab(cfg, env):
                 if pi_df is not None and not pi_df.empty:
                     csv_bytes = pi_df.to_csv(index=False).encode('utf-8')
                     fname = f"purchase_invoices_{inv_start.strftime('%Y%m%d')}_{inv_end.strftime('%Y%m%d')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
-                    st.download_button("Download Purchase Invoices CSV", data=csv_bytes, file_name=fname, mime='text/csv')
+                    st.download_button("Download Purchase Invoices CSV", data=csv_bytes, file_name=fname, mime='text/csv', key='invoices_download_pi_csv')
 
                     # Excel
                     excel_buf = BytesIO()
@@ -199,13 +199,13 @@ def render_invoices_tab(cfg, env):
                         pi_df.to_excel(writer, sheet_name='PurchaseInvoices', index=False)
                     excel_buf.seek(0)
                     fname_x = fname.replace('.csv', '.xlsx')
-                    st.download_button("Download Purchase Invoices Excel", data=excel_buf, file_name=fname_x, mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                    st.download_button("Download Purchase Invoices Excel", data=excel_buf, file_name=fname_x, mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', key='invoices_download_pi_xlsx')
 
                 # General Journal
                 if gj_df is not None and not gj_df.empty:
                     gj_csv = gj_df.to_csv(index=False).encode('utf-8')
                     gj_name = f"purchase_invoices_journal_{inv_start.strftime('%Y%m%d')}_{inv_end.strftime('%Y%m%d')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
-                    st.download_button("Download Purchase Invoices General Journal CSV", data=gj_csv, file_name=gj_name, mime='text/csv')
+                    st.download_button("Download Purchase Invoices General Journal CSV", data=gj_csv, file_name=gj_name, mime='text/csv', key='invoices_download_gj_csv')
 
                 # Optional audit NDJSON (write only when user requests)
                 if include_audit:
@@ -217,7 +217,7 @@ def render_invoices_tab(cfg, env):
                             for b in bills:
                                 af.write(json.dumps(b, ensure_ascii=False) + "\n")
                         with open(audit_path, 'rb') as f:
-                            st.download_button("Download Bills Audit (NDJSON)", f, file_name=os.path.basename(audit_path), mime='application/x-ndjson')
+                            st.download_button("Download Bills Audit (NDJSON)", f, file_name=os.path.basename(audit_path), mime='application/x-ndjson', key='invoices_download_audit_ndjson')
                     except Exception:
                         st.warning("Could not write audit NDJSON file.")
 
@@ -228,11 +228,11 @@ def render_invoices_tab(cfg, env):
                     st.subheader('Post-generation actions')
                     st.write(f"{len(bills_cached)} bills prepared for export (total ${st.session_state.get('inv_bill_total', 0.0):,.2f}).")
 
-                    if st.checkbox('Enable marking these bills as synced (dry-run unless live sync enabled)', value=False, key='pi_enable_mark'):
-                        if not st.session_state.get('pi_confirm_mark'):
+                    if st.checkbox('Enable marking these bills as synced (dry-run unless live sync enabled)', value=False, key='invoices_pi_enable_mark'):
+                        if not st.session_state.get('invoices_pi_confirm_mark'):
                             st.warning('Please check the confirmation checkbox above to enable marking.')
                         else:
-                            if st.button('Mark these bills as synced in Ramp', key='pi_mark_btn'):
+                            if st.button('Mark these bills as synced in Ramp', key='invoices_pi_mark_btn'):
                                 with st.spinner('Marking bills as synced...'):
                                     try:
                                         client = RampClient(
@@ -267,7 +267,7 @@ def render_invoices_tab(cfg, env):
                                         if audit_path:
                                             st.markdown(f"Audit CSV written to `{audit_path}`")
                                             with open(audit_path, 'rb') as f:
-                                                st.download_button("Download bills sync audit CSV", f, file_name=os.path.basename(audit_path))
+                                                st.download_button("Download bills sync audit CSV", f, file_name=os.path.basename(audit_path), key='invoices_download_sync_audit_csv')
 
                                     except Exception as e:
                                         st.error(f"Error marking bills as synced: {e}")

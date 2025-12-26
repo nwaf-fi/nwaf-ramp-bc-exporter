@@ -13,18 +13,18 @@ def render_reimbursements_tab(cfg, env):
     st.subheader("Reimbursements Export")
     st.write("Export reimbursements (PAID) as BC general journal rows for the selected date range.")
 
-    include_audit = st.checkbox("Write reimbursements audit NDJSON (export original objects)", value=False, key='reim_include_audit')
-    mark_synced = st.checkbox("Mark exported reimbursements as synced in Ramp (dry-run unless live sync enabled)", value=False, key='reim_mark_synced')
+    include_audit = st.checkbox("Write reimbursements audit NDJSON (export original objects)", value=False, key='reimbursements_reim_include_audit')
+    mark_synced = st.checkbox("Mark exported reimbursements as synced in Ramp (dry-run unless live sync enabled)", value=False, key='reimbursements_reim_mark_synced')
 
     # Local date range inputs for Reimbursements (fallback to global sidebar dates if present)
     col_a, col_b = st.columns(2)
     with col_a:
-        reim_start = st.date_input("Reimbursements: Start Date", value=st.session_state.get('reim_start_date', datetime.now().replace(day=1)), key='reim_start')
+        reim_start = st.date_input("Reimbursements: Start Date", value=st.session_state.get('reim_start_date', datetime.now().replace(day=1)), key='reimbursements_reim_start')
     with col_b:
-        reim_end = st.date_input("Reimbursements: End Date", value=st.session_state.get('reim_end_date', datetime.now()), key='reim_end')
+        reim_end = st.date_input("Reimbursements: End Date", value=st.session_state.get('reim_end_date', datetime.now()), key='reimbursements_reim_end')
 
     # Add preview action for reimbursements (non-destructive)
-    if st.button("Preview Reimbursements for date range", key='preview_reim_btn'):
+    if st.button("Preview Reimbursements for date range", key='reimbursements_preview_reim_btn'):
         with st.spinner("Fetching reimbursements for preview..."):
             try:
                 client = RampClient(
@@ -75,18 +75,10 @@ def render_reimbursements_tab(cfg, env):
                     if r_df is not None and not r_df.empty:
                         csv_bytes = r_df.to_csv(index=False).encode('utf-8')
                         fname = f"reimbursements_{reim_start.strftime('%Y%m%d')}_{reim_end.strftime('%Y%m%d')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
-                        st.download_button("Download Reimbursements CSV (preview)", data=csv_bytes, file_name=fname, mime='text/csv')
+                        st.download_button("Download Reimbursements CSV (preview)", data=csv_bytes, file_name=fname, mime='text/csv', key='reimbursements_download_preview_csv')
 
-            except Exception as e:
-                import traceback
-                tb = traceback.format_exc()
-                st.error("Error during preview. See details below.")
-                with st.expander("Preview error details (expand for stack trace)"):
-                    st.code(tb)
-                import logging
-                logging.exception("Preview error: %s", tb)
 
-    if st.button("Generate Reimbursements for date range", key='gen_reim_btn'):
+    if st.button("Generate Reimbursements for date range", key='reimbursements_gen_reim_btn'):
         with st.spinner("Fetching reimbursements and preparing export..."):
             try:
                 client = RampClient(
@@ -143,7 +135,7 @@ def render_reimbursements_tab(cfg, env):
                 if r_df is not None and not r_df.empty:
                     csv_bytes = r_df.to_csv(index=False).encode('utf-8')
                     fname = f"reimbursements_{reim_start.strftime('%Y%m%d')}_{reim_end.strftime('%Y%m%d')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
-                    st.download_button("Download Reimbursements CSV", data=csv_bytes, file_name=fname, mime='text/csv')
+                    st.download_button("Download Reimbursements CSV", data=csv_bytes, file_name=fname, mime='text/csv', key='reimbursements_download_csv')
 
                 # Optional audit
                 if include_audit:
@@ -155,7 +147,7 @@ def render_reimbursements_tab(cfg, env):
                             for r in reims:
                                 af.write(json.dumps(r, ensure_ascii=False) + "\n")
                         with open(audit_path, 'rb') as f:
-                            st.download_button("Download Reimbursements Audit (NDJSON)", f, file_name=os.path.basename(audit_path), mime='application/x-ndjson')
+                            st.download_button("Download Reimbursements Audit (NDJSON)", f, file_name=os.path.basename(audit_path), mime='application/x-ndjson', key='reimbursements_download_audit_ndjson')
                     except Exception:
                         st.warning('Could not write audit NDJSON file.')
 

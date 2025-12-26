@@ -69,7 +69,7 @@ def render_credit_cards_tab(cfg, env):
                     if failures:
                         st.warning(f"{len(failures)} transactions failed to fetch (see logs).")
 
-                    strict_mode = st.checkbox("Abort export if totals mismatch (strict)", value=False, help="When enabled, the export will be disabled if statement total does not match transaction sum.")
+                    strict_mode = st.checkbox("Abort export if totals mismatch (strict)", value=False, help="When enabled, the export will be disabled if statement total does not match transaction sum.", key='cc_strict_mode')
                     mismatch = abs(stmt_charges - tx_total) > 0.01
                     if mismatch:
                         st.warning("Statement total does not match the transaction total.")
@@ -91,7 +91,7 @@ def render_credit_cards_tab(cfg, env):
                     if df is not None and not df.empty and (not (strict_mode and mismatch)):
                         csv_bytes = df.to_csv(index=False).encode('utf-8')
                         fname = f"v2_cc_statement_journal_{s.replace('-', '')}_{e.replace('-', '')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
-                        st.download_button("Download CC Journal (Latest Statement)", data=csv_bytes, file_name=fname, mime='text/csv')
+                        st.download_button("Download CC Journal (Latest Statement)", data=csv_bytes, file_name=fname, mime='text/csv', key='cc_download_journal')
 
             except Exception as ex:
                 st.error(f"Error fetching statement: {ex}")

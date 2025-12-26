@@ -304,7 +304,7 @@ with inv_tab:
                 if pi_df is not None and not pi_df.empty:
                     csv_bytes = pi_df.to_csv(index=False).encode('utf-8')
                     fname = f"purchase_invoices_{inv_start.strftime('%Y%m%d')}_{inv_end.strftime('%Y%m%d')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
-                    st.download_button("Download Purchase Invoices CSV", data=csv_bytes, file_name=fname, mime='text/csv')
+                    st.download_button("Download Purchase Invoices CSV", data=csv_bytes, file_name=fname, mime='text/csv', key='master_purchase_invoices_csv')
 
                     # Excel
                     excel_buf = BytesIO()
@@ -312,13 +312,13 @@ with inv_tab:
                         pi_df.to_excel(writer, sheet_name='PurchaseInvoices', index=False)
                     excel_buf.seek(0)
                     fname_x = fname.replace('.csv', '.xlsx')
-                    st.download_button("Download Purchase Invoices Excel", data=excel_buf, file_name=fname_x, mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                    st.download_button("Download Purchase Invoices Excel", data=excel_buf, file_name=fname_x, mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', key='master_purchase_invoices_xlsx')
 
                 # General Journal
                 if gj_df is not None and not gj_df.empty:
                     gj_csv = gj_df.to_csv(index=False).encode('utf-8')
                     gj_name = f"purchase_invoices_journal_{inv_start.strftime('%Y%m%d')}_{inv_end.strftime('%Y%m%d')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
-                    st.download_button("Download Purchase Invoices General Journal CSV", data=gj_csv, file_name=gj_name, mime='text/csv')
+                    st.download_button("Download Purchase Invoices General Journal CSV", data=gj_csv, file_name=gj_name, mime='text/csv', key='master_purchase_invoices_gj_csv')
 
                 # Optional audit NDJSON (write only when user requests)
                 if include_audit:
@@ -330,7 +330,7 @@ with inv_tab:
                             for b in bills:
                                 af.write(json.dumps(b, ensure_ascii=False) + "\n")
                         with open(audit_path, 'rb') as f:
-                            st.download_button("Download Bills Audit (NDJSON)", f, file_name=os.path.basename(audit_path), mime='application/x-ndjson')
+                            st.download_button("Download Bills Audit (NDJSON)", f, file_name=os.path.basename(audit_path), mime='application/x-ndjson', key='master_bills_audit_ndjson')
                     except Exception:
                         st.warning("Could not write audit NDJSON file.")
 
@@ -383,7 +383,7 @@ with inv_tab:
                             if audit_path:
                                 st.markdown(f"Audit CSV written to `{audit_path}`")
                                 with open(audit_path, 'rb') as f:
-                                    st.download_button("Download bills sync audit CSV", f, file_name=os.path.basename(audit_path))
+                                    st.download_button("Download bills sync audit CSV", f, file_name=os.path.basename(audit_path), key='master_bills_sync_audit_csv')
 
                         except Exception as e:
                             st.error(f"Error marking bills as synced: {e}")
@@ -393,18 +393,18 @@ from ui.reimbursements import render_reimbursements_tab
 with reimb_tab:
     render_reimbursements_tab(cfg, env)
 
-    include_audit = st.checkbox("Write reimbursements audit NDJSON (export original objects)", value=False, key='reim_include_audit')
-    mark_synced = st.checkbox("Mark exported reimbursements as synced in Ramp (dry-run unless live sync enabled)", value=False, key='reim_mark_synced')
+    include_audit = st.checkbox("Write reimbursements audit NDJSON (export original objects)", value=False, key='master_reim_include_audit')
+    mark_synced = st.checkbox("Mark exported reimbursements as synced in Ramp (dry-run unless live sync enabled)", value=False, key='master_reim_mark_synced')
 
     # Local date range inputs for Reimbursements (fallback to global sidebar dates if present)
     col_a, col_b = st.columns(2)
     with col_a:
-        reim_start = st.date_input("Reimbursements: Start Date", value=st.session_state.get('reim_start_date', start_date if 'start_date' in globals() else datetime.now().replace(day=1)), key='reim_start')
+        reim_start = st.date_input("Reimbursements: Start Date", value=st.session_state.get('reim_start_date', start_date if 'start_date' in globals() else datetime.now().replace(day=1)), key='master_reim_start')
     with col_b:
-        reim_end = st.date_input("Reimbursements: End Date", value=st.session_state.get('reim_end_date', end_date if 'end_date' in globals() else datetime.now()), key='reim_end')
+        reim_end = st.date_input("Reimbursements: End Date", value=st.session_state.get('reim_end_date', end_date if 'end_date' in globals() else datetime.now()), key='master_reim_end')
 
     # Add preview action for reimbursements (non-destructive)
-    if st.button("Preview Reimbursements for date range", key='preview_reim_btn'):
+    if st.button("Preview Reimbursements for date range", key='master_preview_reim_btn'):
         with st.spinner("Fetching reimbursements for preview..."):
             try:
                 client = RampClient(
@@ -455,7 +455,7 @@ with reimb_tab:
                     if r_df is not None and not r_df.empty:
                         csv_bytes = r_df.to_csv(index=False).encode('utf-8')
                         fname = f"reimbursements_{reim_start.strftime('%Y%m%d')}_{reim_end.strftime('%Y%m%d')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
-                        st.download_button("Download Reimbursements CSV (preview)", data=csv_bytes, file_name=fname, mime='text/csv')
+                        st.download_button("Download Reimbursements CSV (preview)", data=csv_bytes, file_name=fname, mime='text/csv', key='master_reimbursements_preview_csv')
 
             except Exception as e:
                 import traceback
@@ -466,7 +466,7 @@ with reimb_tab:
                 import logging
                 logging.exception("Preview error: %s", tb)
 
-    if st.button("Generate Reimbursements for date range"):
+    if st.button("Generate Reimbursements for date range", key='master_gen_reim_btn'):
         with st.spinner("Fetching reimbursements and preparing export..."):
             try:
                 client = RampClient(
@@ -523,7 +523,7 @@ with reimb_tab:
                 if r_df is not None and not r_df.empty:
                     csv_bytes = r_df.to_csv(index=False).encode('utf-8')
                     fname = f"reimbursements_{reim_start.strftime('%Y%m%d')}_{reim_end.strftime('%Y%m%d')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
-                    st.download_button("Download Reimbursements CSV", data=csv_bytes, file_name=fname, mime='text/csv')
+                    st.download_button("Download Reimbursements CSV", data=csv_bytes, file_name=fname, mime='text/csv', key='master_reimbursements_csv')
 
                 # Optional audit
                 if include_audit:
