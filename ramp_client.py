@@ -175,8 +175,9 @@ class RampClient:
         """
         Mark a transaction as synced to Business Central and return a tuple: (ok: bool, message: str).
 
-        The message contains details useful for debugging (status code and truncated response body, or error text).
-        When `enable_sync` is False, this behaves as a dry-run and returns (True, "[DRY RUN] ...").
+        Tries multiple candidate endpoints to be resilient to base_url path differences and
+        different Ramp API surfaces. Returns a helpful message including status and endpoint
+        tried for diagnostics.
         """
         # Dry run behavior: avoid accidental writes
         if not getattr(self, 'enable_sync', False):
@@ -184,26 +185,54 @@ class RampClient:
             print(f"🔍 {msg}")
             return True, msg
 
-        url = f"{self.base_url}/transactions/{transaction_id}/sync"
         data = {"synced": True, "sync_system": "business_central"}
         if sync_reference:
             data["sync_reference"] = sync_reference
 
-        try:
-            resp = self.session.post(url, json=data, timeout=10)
-            ok = 200 <= resp.status_code < 300
-            # Provide some response text for failures to aid debugging
-            if ok:
-                return True, f"{resp.status_code}"
-            else:
+        # Build candidates smartly to avoid duplicating 'developer/v1' if already present in base_url
+        base = self.base_url.rstrip('/')
+        candidates = []
+        if 'developer/v1' in base:
+            # base already includes developer/v1 - prefer the accounting path relative to that
+            candidates = [
+                urljoin(base + '/', "accounting/syncs"),
+                urljoin(base + '/', f"transactions/{transaction_id}/sync"),
+            ]
+        else:
+            # Try canonical developer path first, then fallback to shorter paths
+            candidates = [
+                urljoin(base + '/', "developer/v1/accounting/syncs"),
+                urljoin(base + '/', "accounting/syncs"),
+                urljoin(base + '/', f"transactions/{transaction_id}/sync"),
+                urljoin(base + '/', f"developer/v1/transactions/{transaction_id}/sync"),
+            ]
+
+        last_msg = None
+        for endpoint in candidates:
+            try:
+                # Some endpoints expect the transaction id in the body, others use the path
+                if endpoint.rstrip('/').endswith(f"transactions/{transaction_id}/sync"):
+                    payload = data
+                else:
+                    payload = {**data, "transaction_id": transaction_id}
+
+                resp = self.session.post(endpoint, json=payload, timeout=10)
+                if 200 <= resp.status_code < 300:
+                    return True, f"{resp.status_code} at {endpoint}"
+                # capture diagnostic message
                 body = ''
                 try:
                     body = resp.text
                 except Exception:
                     pass
-                return False, f"{resp.status_code} {body[:1000]}"
-        except Exception as ex:
-            return False, str(ex)
+                last_msg = f"{resp.status_code} at {endpoint}: {body[:1000]}"
+                # try next candidate if not successful
+            except Exception as ex:
+                last_msg = str(ex)
+                # try next candidate
+                continue
+
+        return False, last_msg or "No endpoint succeeded"
 
     def is_transaction_synced(self, transaction: Dict) -> bool:
         """Heuristic check whether a transaction object is already marked as synced.
