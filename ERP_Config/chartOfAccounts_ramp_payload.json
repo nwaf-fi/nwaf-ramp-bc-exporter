@@ -1,0 +1,1291 @@
+{
+  "accounts": [
+    {
+      "account_number": "11000",
+      "account_name": "Cash - Wells Fargo",
+      "account_type": "Asset",
+      "sub_type": "Cash",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "11000"
+    },
+    {
+      "account_number": "11005",
+      "account_name": "Cash - Northern Trust",
+      "account_type": "Asset",
+      "sub_type": "Cash",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "11005"
+    },
+    {
+      "account_number": "11010",
+      "account_name": "Cash - Drake Bank",
+      "account_type": "Asset",
+      "sub_type": "Cash",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "11010"
+    },
+    {
+      "account_number": "11050",
+      "account_name": "Petty Cash",
+      "account_type": "Asset",
+      "sub_type": "Cash",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "11050"
+    },
+    {
+      "account_number": "11500",
+      "account_name": "Accrued Investment Income",
+      "account_type": "Asset",
+      "sub_type": "Accrued Investment Income",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "11500"
+    },
+    {
+      "account_number": "12000",
+      "account_name": "Federal Excise Tax Receivable",
+      "account_type": "Asset",
+      "sub_type": "Other Current Assets",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "12000"
+    },
+    {
+      "account_number": "12010",
+      "account_name": "Employee Receivable",
+      "account_type": "Asset",
+      "sub_type": "Other Current Assets",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "12010"
+    },
+    {
+      "account_number": "12020",
+      "account_name": "Credit Card Receivable",
+      "account_type": "Asset",
+      "sub_type": "Other Current Assets",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "12020"
+    },
+    {
+      "account_number": "12030",
+      "account_name": "Employee Medical Premiums Rec",
+      "account_type": "Asset",
+      "sub_type": "Other Current Assets",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "12030"
+    },
+    {
+      "account_number": "12032",
+      "account_name": "Employee Dental Premiums Rec",
+      "account_type": "Asset",
+      "sub_type": "Other Current Assets",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "12032"
+    },
+    {
+      "account_number": "12035",
+      "account_name": "Employee Cell Phone Receivable",
+      "account_type": "Asset",
+      "sub_type": "Other Current Assets",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "12035"
+    },
+    {
+      "account_number": "12040",
+      "account_name": "LTD Premium Receivable",
+      "account_type": "Asset",
+      "sub_type": "Other Current Assets",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "12040"
+    },
+    {
+      "account_number": "12050",
+      "account_name": "COBRA Receivable",
+      "account_type": "Asset",
+      "sub_type": "Other Current Assets",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "12050"
+    },
+    {
+      "account_number": "12100",
+      "account_name": "Miscellaneous Receivables",
+      "account_type": "Asset",
+      "sub_type": "Other Current Assets",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "12100"
+    },
+    {
+      "account_number": "12200",
+      "account_name": "Tenant Receivable",
+      "account_type": "Asset",
+      "sub_type": "Other Current Assets",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "12200"
+    },
+    {
+      "account_number": "12300",
+      "account_name": "Grants Receivable",
+      "account_type": "Asset",
+      "sub_type": "Grants Receivable",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "12300"
+    },
+    {
+      "account_number": "12500",
+      "account_name": "Prepaid General Expenses",
+      "account_type": "Asset",
+      "sub_type": "Other Current Assets",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "12500"
+    },
+    {
+      "account_number": "12510",
+      "account_name": "Prepaid Rent",
+      "account_type": "Asset",
+      "sub_type": "Other Current Assets",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "12510"
+    },
+    {
+      "account_number": "12520",
+      "account_name": "Prepaid Business Insurance",
+      "account_type": "Asset",
+      "sub_type": "Other Current Assets",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "12520"
+    },
+    {
+      "account_number": "12530",
+      "account_name": "Prepaid Salaries/Benefits",
+      "account_type": "Asset",
+      "sub_type": "Other Current Assets",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "12530"
+    },
+    {
+      "account_number": "12540",
+      "account_name": "Prepaid Postage",
+      "account_type": "Asset",
+      "sub_type": "Other Current Assets",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "12540"
+    },
+    {
+      "account_number": "13000",
+      "account_name": "Investments (Book Value)",
+      "account_type": "Asset",
+      "sub_type": "Investments (Book Value)",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "13000"
+    },
+    {
+      "account_number": "13001",
+      "account_name": "Investment Domestic ETF (Book)",
+      "account_type": "Asset",
+      "sub_type": "Investments (Book Value)",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "13001"
+    },
+    {
+      "account_number": "13002",
+      "account_name": "Investments Intl ETF (Book)",
+      "account_type": "Asset",
+      "sub_type": "Investments (Book Value)",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "13002"
+    },
+    {
+      "account_number": "13003",
+      "account_name": "Investments Global ETF (Book)",
+      "account_type": "Asset",
+      "sub_type": "Investments (Book Value)",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "13003"
+    },
+    {
+      "account_number": "13004",
+      "account_name": "Investments SIO (Book)",
+      "account_type": "Asset",
+      "sub_type": "Investments (Book Value)",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "13004"
+    },
+    {
+      "account_number": "13010",
+      "account_name": "Investment Cash Equivalents",
+      "account_type": "Asset",
+      "sub_type": "Investments (Cash)",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "13010"
+    },
+    {
+      "account_number": "13015",
+      "account_name": "Investments - TIPS (Book)",
+      "account_type": "Asset",
+      "sub_type": "Investments (Book Value)",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "13015"
+    },
+    {
+      "account_number": "13020",
+      "account_name": "Investment Market Change",
+      "account_type": "Asset",
+      "sub_type": "Investment Market Change",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "13020"
+    },
+    {
+      "account_number": "13021",
+      "account_name": "Investment Change - Dom. ETF",
+      "account_type": "Asset",
+      "sub_type": "Investment Market Change",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "13021"
+    },
+    {
+      "account_number": "13022",
+      "account_name": "Investment Change - Intl ETF",
+      "account_type": "Asset",
+      "sub_type": "Investment Market Change",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "13022"
+    },
+    {
+      "account_number": "13023",
+      "account_name": "Investment Change - Global ETF",
+      "account_type": "Asset",
+      "sub_type": "Investment Market Change",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "13023"
+    },
+    {
+      "account_number": "13024",
+      "account_name": "Investment Change - SIO",
+      "account_type": "Asset",
+      "sub_type": "Investment Market Change",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "13024"
+    },
+    {
+      "account_number": "13025",
+      "account_name": "Investment Change - TIPS",
+      "account_type": "Asset",
+      "sub_type": "Investment Market Change",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "13025"
+    },
+    {
+      "account_number": "13500",
+      "account_name": "Program Related Investments",
+      "account_type": "Asset",
+      "sub_type": "Program Related Investments",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "13500"
+    },
+    {
+      "account_number": "13510",
+      "account_name": "Program Related Investments NQ",
+      "account_type": "Asset",
+      "sub_type": "Program Related Investments",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "13510"
+    },
+    {
+      "account_number": "13520",
+      "account_name": "Discount on PRIs",
+      "account_type": "Asset",
+      "sub_type": "Program Related Investments",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "13520"
+    },
+    {
+      "account_number": "13525",
+      "account_name": "PRI Allowance",
+      "account_type": "Asset",
+      "sub_type": "Program Related Investments",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "13525"
+    },
+    {
+      "account_number": "13550",
+      "account_name": "PRI - Interest Receivable",
+      "account_type": "Asset",
+      "sub_type": "Program Related Investments",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "13550"
+    },
+    {
+      "account_number": "14010",
+      "account_name": "Leasehold Improvements",
+      "account_type": "Asset",
+      "sub_type": "Property & Equipment, Net",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "14010"
+    },
+    {
+      "account_number": "14015",
+      "account_name": "Accum Depreciation - Leasehold",
+      "account_type": "Asset",
+      "sub_type": "Property & Equipment, Net",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "14015"
+    },
+    {
+      "account_number": "14020",
+      "account_name": "Furniture & Equipment",
+      "account_type": "Asset",
+      "sub_type": "Property & Equipment, Net",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "14020"
+    },
+    {
+      "account_number": "14025",
+      "account_name": "Accum. Depreciation - Equip",
+      "account_type": "Asset",
+      "sub_type": "Property & Equipment, Net",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "14025"
+    },
+    {
+      "account_number": "14030",
+      "account_name": "Computer Hardware/Software",
+      "account_type": "Asset",
+      "sub_type": "Property & Equipment, Net",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "14030"
+    },
+    {
+      "account_number": "14035",
+      "account_name": "Accum. Depreciation - Hardware",
+      "account_type": "Asset",
+      "sub_type": "Property & Equipment, Net",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "14035"
+    },
+    {
+      "account_number": "14040",
+      "account_name": "Right-of-Use Asset",
+      "account_type": "Asset",
+      "sub_type": "Right-of-Use Asset, Net",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "14040"
+    },
+    {
+      "account_number": "14045",
+      "account_name": "Accum. Amortization - ROU Asset",
+      "account_type": "Asset",
+      "sub_type": "Right-of-Use Asset, Net",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "14045"
+    },
+    {
+      "account_number": "14050",
+      "account_name": "WIP - Fixed Assets",
+      "account_type": "Asset",
+      "sub_type": "Property & Equipment, Net",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "14050"
+    },
+    {
+      "account_number": "15000",
+      "account_name": "Oil, Gas, & Mineral Rights",
+      "account_type": "Asset",
+      "sub_type": "Oil, Gas, & Mineral Rights",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "15000"
+    },
+    {
+      "account_number": "26000",
+      "account_name": "Accounts Payable - General",
+      "account_type": "Liability",
+      "sub_type": "Accounts Payable and Accrued Expenses",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "26000"
+    },
+    {
+      "account_number": "26010",
+      "account_name": "Investment Fees Payable",
+      "account_type": "Liability",
+      "sub_type": "Accounts Payable and Accrued Expenses",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "26010"
+    },
+    {
+      "account_number": "26015",
+      "account_name": "Federal Excise Tax Payable",
+      "account_type": "Liability",
+      "sub_type": "Federal Excise Tax Payable",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "26015"
+    },
+    {
+      "account_number": "26020",
+      "account_name": "Deferred Leasehold Incentive",
+      "account_type": "Liability",
+      "sub_type": "Lease Liability",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "26020"
+    },
+    {
+      "account_number": "26025",
+      "account_name": "Lease Liability",
+      "account_type": "Liability",
+      "sub_type": "Lease Liability",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "26025"
+    },
+    {
+      "account_number": "26030",
+      "account_name": "Payroll Payable",
+      "account_type": "Liability",
+      "sub_type": "Accounts Payable and Accrued Expenses",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "26030"
+    },
+    {
+      "account_number": "26035",
+      "account_name": "Community Shares Fund Payable",
+      "account_type": "Liability",
+      "sub_type": "Accounts Payable and Accrued Expenses",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "26035"
+    },
+    {
+      "account_number": "26040",
+      "account_name": "United Way Payable",
+      "account_type": "Liability",
+      "sub_type": "Accounts Payable and Accrued Expenses",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "26040"
+    },
+    {
+      "account_number": "26045",
+      "account_name": "Garnishments Payable",
+      "account_type": "Liability",
+      "sub_type": "Accounts Payable and Accrued Expenses",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "26045"
+    },
+    {
+      "account_number": "26050",
+      "account_name": "Supplemental Insurance Payable",
+      "account_type": "Liability",
+      "sub_type": "Accounts Payable and Accrued Expenses",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "26050"
+    },
+    {
+      "account_number": "26055",
+      "account_name": "Employee Cell Phone Payable",
+      "account_type": "Liability",
+      "sub_type": "Accounts Payable and Accrued Expenses",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "26055"
+    },
+    {
+      "account_number": "26060",
+      "account_name": "Employee 403b Accounts Payable",
+      "account_type": "Liability",
+      "sub_type": "Accounts Payable and Accrued Expenses",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "26060"
+    },
+    {
+      "account_number": "26070",
+      "account_name": "Employer Medical Prem Payable",
+      "account_type": "Liability",
+      "sub_type": "Accounts Payable and Accrued Expenses",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "26070"
+    },
+    {
+      "account_number": "26075",
+      "account_name": "Employer Dental Prem Payable",
+      "account_type": "Liability",
+      "sub_type": "Accounts Payable and Accrued Expenses",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "26075"
+    },
+    {
+      "account_number": "26080",
+      "account_name": "Employee FSA Payable",
+      "account_type": "Liability",
+      "sub_type": "Accounts Payable and Accrued Expenses",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "26080"
+    },
+    {
+      "account_number": "26085",
+      "account_name": "Employee HSA Payable",
+      "account_type": "Liability",
+      "sub_type": "Accounts Payable and Accrued Expenses",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "26085"
+    },
+    {
+      "account_number": "26090",
+      "account_name": "Purchased PTO Payable",
+      "account_type": "Liability",
+      "sub_type": "Accounts Payable and Accrued Expenses",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "26090"
+    },
+    {
+      "account_number": "26095",
+      "account_name": "Employer Life Insurance Payable",
+      "account_type": "Liability",
+      "sub_type": "Accounts Payable and Accrued Expenses",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "26095"
+    },
+    {
+      "account_number": "26100",
+      "account_name": "Ramp Card",
+      "account_type": "Liability",
+      "sub_type": "Accounts Payable and Accrued Expenses",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "26100"
+    },
+    {
+      "account_number": "27000",
+      "account_name": "Accrued Expenses - General",
+      "account_type": "Liability",
+      "sub_type": "Accounts Payable and Accrued Expenses",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "27000"
+    },
+    {
+      "account_number": "27005",
+      "account_name": "Accrued Grant Expense",
+      "account_type": "Liability",
+      "sub_type": "Unpaid Grant Commitments",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "27005"
+    },
+    {
+      "account_number": "27010",
+      "account_name": "Deferred Federal Excise Taxes",
+      "account_type": "Liability",
+      "sub_type": "Federal Excise Tax Payable",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "27010"
+    },
+    {
+      "account_number": "27020",
+      "account_name": "Accrued Salaries Expense",
+      "account_type": "Liability",
+      "sub_type": "Accounts Payable and Accrued Expenses",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "27020"
+    },
+    {
+      "account_number": "27030",
+      "account_name": "Accrued PTO Expense",
+      "account_type": "Liability",
+      "sub_type": "Accounts Payable and Accrued Expenses",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "27030"
+    },
+    {
+      "account_number": "27040",
+      "account_name": "Investment Settlements Pending",
+      "account_type": "Liability",
+      "sub_type": "Securities Settlements Payable",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "27040"
+    },
+    {
+      "account_number": "39000",
+      "account_name": "Fund Balance - General",
+      "account_type": "Equity",
+      "sub_type": "Unrestricted Net Assets",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "39000"
+    },
+    {
+      "account_number": "39050",
+      "account_name": "Fund Balance - Mineral Rights",
+      "account_type": "Equity",
+      "sub_type": "Unrestricted Net Assets",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "39050"
+    },
+    {
+      "account_number": "39100",
+      "account_name": "Permanently Restricted Assets",
+      "account_type": "Equity",
+      "sub_type": "Permanently Restricted Net Assets",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "39100"
+    },
+    {
+      "account_number": "39200",
+      "account_name": "Unrestricted Net Assets",
+      "account_type": "Equity",
+      "sub_type": "Unrestricted Net Assets",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "39200"
+    },
+    {
+      "account_number": "41000",
+      "account_name": "Interest/Dividends (Budget)",
+      "account_type": "Revenue",
+      "sub_type": "Dividends & Interest",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "41000"
+    },
+    {
+      "account_number": "41010",
+      "account_name": "Interest/Dividends",
+      "account_type": "Revenue",
+      "sub_type": "Dividends & Interest",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "41010"
+    },
+    {
+      "account_number": "41030",
+      "account_name": "Realized Invest Gains/Losses",
+      "account_type": "Revenue",
+      "sub_type": "Realized Investment Gains/Losses",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "41030"
+    },
+    {
+      "account_number": "41040",
+      "account_name": "Unrealized Invest Gains/Losses",
+      "account_type": "Revenue",
+      "sub_type": "Unealized Investment Gains/Losses",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "41040"
+    },
+    {
+      "account_number": "41050",
+      "account_name": "Securities Litigation Income",
+      "account_type": "Revenue",
+      "sub_type": "Dividends & Interest",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "41050"
+    },
+    {
+      "account_number": "41100",
+      "account_name": "PRI Interest Income",
+      "account_type": "Revenue",
+      "sub_type": "Dividends & Interest",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "41100"
+    },
+    {
+      "account_number": "41110",
+      "account_name": "PRI Imputed Interest",
+      "account_type": "Revenue",
+      "sub_type": "Dividends & Interest",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "41110"
+    },
+    {
+      "account_number": "41150",
+      "account_name": "Realized Gain/Loss on PRIs",
+      "account_type": "Revenue",
+      "sub_type": "Realized Investment Gains/Losses",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "41150"
+    },
+    {
+      "account_number": "41200",
+      "account_name": "Conference Fees",
+      "account_type": "Revenue",
+      "sub_type": "Other",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "41200"
+    },
+    {
+      "account_number": "41300",
+      "account_name": "Miscellaneous Income",
+      "account_type": "Revenue",
+      "sub_type": "Other",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "41300"
+    },
+    {
+      "account_number": "41400",
+      "account_name": "Gains on Disposal of Assets",
+      "account_type": "Revenue",
+      "sub_type": "Other",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "41400"
+    },
+    {
+      "account_number": "41500",
+      "account_name": "Contributions",
+      "account_type": "Revenue",
+      "sub_type": "Contributions",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "41500"
+    },
+    {
+      "account_number": "53000",
+      "account_name": "Grants",
+      "account_type": "Expense",
+      "sub_type": "Grants",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "53000"
+    },
+    {
+      "account_number": "53005",
+      "account_name": "Grants for Native Orgs",
+      "account_type": "Expense",
+      "sub_type": "Grants",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "53005"
+    },
+    {
+      "account_number": "53010",
+      "account_name": "Grant Returns",
+      "account_type": "Expense",
+      "sub_type": "Grants",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "53010"
+    },
+    {
+      "account_number": "53060",
+      "account_name": "Membership Grants",
+      "account_type": "Expense",
+      "sub_type": "Grants",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "53060"
+    },
+    {
+      "account_number": "53090",
+      "account_name": "Grant/Qual Dist Contingency",
+      "account_type": "Expense",
+      "sub_type": "Grants",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "53090"
+    },
+    {
+      "account_number": "53100",
+      "account_name": "Imputed Interest Contribution",
+      "account_type": "Expense",
+      "sub_type": "Grants",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "53100"
+    },
+    {
+      "account_number": "53110",
+      "account_name": "PRI Write Offs",
+      "account_type": "Expense",
+      "sub_type": "Grants",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "53110"
+    },
+    {
+      "account_number": "54000",
+      "account_name": "Consulting & Professional Fees",
+      "account_type": "Expense",
+      "sub_type": "Professional Services",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "54000"
+    },
+    {
+      "account_number": "54010",
+      "account_name": "Investment Mgr/Consult Fees",
+      "account_type": "Expense",
+      "sub_type": "Professional Services",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "54010"
+    },
+    {
+      "account_number": "54015",
+      "account_name": "Legal Fees",
+      "account_type": "Expense",
+      "sub_type": "Professional Services",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "54015"
+    },
+    {
+      "account_number": "54020",
+      "account_name": "Audit & Tax Preparation Fees",
+      "account_type": "Expense",
+      "sub_type": "Professional Services",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "54020"
+    },
+    {
+      "account_number": "54025",
+      "account_name": "Other Contracted Services",
+      "account_type": "Expense",
+      "sub_type": "Professional Services",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "54025"
+    },
+    {
+      "account_number": "54026",
+      "account_name": "Software as a Service",
+      "account_type": "Expense",
+      "sub_type": "Professional Services",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "54026"
+    },
+    {
+      "account_number": "54030",
+      "account_name": "Contracted Temporary Staffing",
+      "account_type": "Expense",
+      "sub_type": "Professional Services",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "54030"
+    },
+    {
+      "account_number": "54035",
+      "account_name": "Search & Hiring Expenses",
+      "account_type": "Expense",
+      "sub_type": "Professional Services",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "54035"
+    },
+    {
+      "account_number": "54040",
+      "account_name": "Marketing & Advertising Svcs",
+      "account_type": "Expense",
+      "sub_type": "Occupancy",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "54040"
+    },
+    {
+      "account_number": "54050",
+      "account_name": "Conference, Meetings, Seminars",
+      "account_type": "Expense",
+      "sub_type": "Travel Expense",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "54050"
+    },
+    {
+      "account_number": "54055",
+      "account_name": "Program-Related Travel",
+      "account_type": "Expense",
+      "sub_type": "Travel Expense",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "54055"
+    },
+    {
+      "account_number": "54060",
+      "account_name": "Communication Services",
+      "account_type": "Expense",
+      "sub_type": "Occupancy",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "54060"
+    },
+    {
+      "account_number": "54065",
+      "account_name": "Postage/Delivery Services",
+      "account_type": "Expense",
+      "sub_type": "Occupancy",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "54065"
+    },
+    {
+      "account_number": "54070",
+      "account_name": "Operating Leases or Rentals",
+      "account_type": "Expense",
+      "sub_type": "Occupancy",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "54070"
+    },
+    {
+      "account_number": "54075",
+      "account_name": "Bldg & Equip Repair & Maint",
+      "account_type": "Expense",
+      "sub_type": "Occupancy",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "54075"
+    },
+    {
+      "account_number": "54080",
+      "account_name": "Business Insurance",
+      "account_type": "Expense",
+      "sub_type": "Occupancy",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "54080"
+    },
+    {
+      "account_number": "54085",
+      "account_name": "Indigenous Land Honor Tax",
+      "account_type": "Expense",
+      "sub_type": "Occupancy",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "54085"
+    },
+    {
+      "account_number": "55000",
+      "account_name": "General Supplies & Materials",
+      "account_type": "Expense",
+      "sub_type": "Occupancy",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "55000"
+    },
+    {
+      "account_number": "55005",
+      "account_name": "Subscriptions & Publications",
+      "account_type": "Expense",
+      "sub_type": "Occupancy",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "55005"
+    },
+    {
+      "account_number": "55010",
+      "account_name": "Program, Conf & Comm Materials",
+      "account_type": "Expense",
+      "sub_type": "Occupancy",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "55010"
+    },
+    {
+      "account_number": "55020",
+      "account_name": "Technology Hardware & Software",
+      "account_type": "Expense",
+      "sub_type": "Occupancy",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "55020"
+    },
+    {
+      "account_number": "56000",
+      "account_name": "Membership Dues & Other Fees",
+      "account_type": "Expense",
+      "sub_type": "Miscellaneous Expense",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "56000"
+    },
+    {
+      "account_number": "56010",
+      "account_name": "Food & Beverages",
+      "account_type": "Expense",
+      "sub_type": "Travel Expense",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "56010"
+    },
+    {
+      "account_number": "56015",
+      "account_name": "Special Events/Other Misc Exps",
+      "account_type": "Expense",
+      "sub_type": "Miscellaneous Expense",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "56015"
+    },
+    {
+      "account_number": "56017",
+      "account_name": "Miscellaneous",
+      "account_type": "Expense",
+      "sub_type": "Miscellaneous Expense",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "56017"
+    },
+    {
+      "account_number": "56020",
+      "account_name": "Board Compensation",
+      "account_type": "Expense",
+      "sub_type": "Salaries & Benefits",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "56020"
+    },
+    {
+      "account_number": "56025",
+      "account_name": "Board Development & Field Svc",
+      "account_type": "Expense",
+      "sub_type": "Travel Expense",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "56025"
+    },
+    {
+      "account_number": "56030",
+      "account_name": "Depreciation Expense",
+      "account_type": "Expense",
+      "sub_type": "Depreciation",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "56030"
+    },
+    {
+      "account_number": "56040",
+      "account_name": "Credit Loss Expense",
+      "account_type": "Expense",
+      "sub_type": "Miscellaneous Expense",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "56040"
+    },
+    {
+      "account_number": "56080",
+      "account_name": "Federal Excise Tax Expense",
+      "account_type": "Expense",
+      "sub_type": "Excise & Income Taxes",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "56080"
+    },
+    {
+      "account_number": "56085",
+      "account_name": "Unrelated Business Income Tax",
+      "account_type": "Expense",
+      "sub_type": "Excise & Income Taxes",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "56085"
+    },
+    {
+      "account_number": "56090",
+      "account_name": "Miscellaneous - Contingency",
+      "account_type": "Expense",
+      "sub_type": "Miscellaneous Expense",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "56090"
+    },
+    {
+      "account_number": "58000",
+      "account_name": "Staff Salaries - Regular",
+      "account_type": "Expense",
+      "sub_type": "Salaries & Benefits",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "58000"
+    },
+    {
+      "account_number": "58010",
+      "account_name": "Staff Salaries - ST Disability",
+      "account_type": "Expense",
+      "sub_type": "Salaries & Benefits",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "58010"
+    },
+    {
+      "account_number": "58020",
+      "account_name": "Staff Salaries - Severance",
+      "account_type": "Expense",
+      "sub_type": "Salaries & Benefits",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "58020"
+    },
+    {
+      "account_number": "59000",
+      "account_name": "Employer FICA/Medicare Taxes",
+      "account_type": "Expense",
+      "sub_type": "Salaries & Benefits",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "59000"
+    },
+    {
+      "account_number": "59001",
+      "account_name": "Health Insurance",
+      "account_type": "Expense",
+      "sub_type": "Salaries & Benefits",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "59001"
+    },
+    {
+      "account_number": "59002",
+      "account_name": "Dental Insurance",
+      "account_type": "Expense",
+      "sub_type": "Salaries & Benefits",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "59002"
+    },
+    {
+      "account_number": "59003",
+      "account_name": "Life/AD&D Insurance",
+      "account_type": "Expense",
+      "sub_type": "Salaries & Benefits",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "59003"
+    },
+    {
+      "account_number": "59004",
+      "account_name": "Transportation Allowance",
+      "account_type": "Expense",
+      "sub_type": "Salaries & Benefits",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "59004"
+    },
+    {
+      "account_number": "59005",
+      "account_name": "Pension Contribution",
+      "account_type": "Expense",
+      "sub_type": "Salaries & Benefits",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "59005"
+    },
+    {
+      "account_number": "59006",
+      "account_name": "403(b) Employer Match",
+      "account_type": "Expense",
+      "sub_type": "Salaries & Benefits",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "59006"
+    },
+    {
+      "account_number": "59007",
+      "account_name": "Workers Compensation",
+      "account_type": "Expense",
+      "sub_type": "Salaries & Benefits",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "59007"
+    },
+    {
+      "account_number": "59008",
+      "account_name": "Unemployment Compensation",
+      "account_type": "Expense",
+      "sub_type": "Salaries & Benefits",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "59008"
+    },
+    {
+      "account_number": "59009",
+      "account_name": "Staff Tuition Reimbursement",
+      "account_type": "Expense",
+      "sub_type": "Salaries & Benefits",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "59009"
+    },
+    {
+      "account_number": "70000",
+      "account_name": "Capital Budget",
+      "account_type": "Expense",
+      "sub_type": "Capital",
+      "currency": "USD",
+      "allow_posting": true,
+      "external_id": "70000"
+    }
+  ]
+}

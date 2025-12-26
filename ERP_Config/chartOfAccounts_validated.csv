@@ -1,0 +1,144 @@
+account_number,account_name,account_type,sub_type,currency,allow_posting,external_id
+11000,Cash - Wells Fargo,Asset,Cash,USD,True,11000
+11005,Cash - Northern Trust,Asset,Cash,USD,True,11005
+11010,Cash - Drake Bank,Asset,Cash,USD,True,11010
+11050,Petty Cash,Asset,Cash,USD,True,11050
+11500,Accrued Investment Income,Asset,Accrued Investment Income,USD,True,11500
+12000,Federal Excise Tax Receivable,Asset,Other Current Assets,USD,True,12000
+12010,Employee Receivable,Asset,Other Current Assets,USD,True,12010
+12020,Credit Card Receivable,Asset,Other Current Assets,USD,True,12020
+12030,Employee Medical Premiums Rec,Asset,Other Current Assets,USD,True,12030
+12032,Employee Dental Premiums Rec,Asset,Other Current Assets,USD,True,12032
+12035,Employee Cell Phone Receivable,Asset,Other Current Assets,USD,True,12035
+12040,LTD Premium Receivable,Asset,Other Current Assets,USD,True,12040
+12050,COBRA Receivable,Asset,Other Current Assets,USD,True,12050
+12100,Miscellaneous Receivables,Asset,Other Current Assets,USD,True,12100
+12200,Tenant Receivable,Asset,Other Current Assets,USD,True,12200
+12300,Grants Receivable,Asset,Grants Receivable,USD,True,12300
+12500,Prepaid General Expenses,Asset,Other Current Assets,USD,True,12500
+12510,Prepaid Rent,Asset,Other Current Assets,USD,True,12510
+12520,Prepaid Business Insurance,Asset,Other Current Assets,USD,True,12520
+12530,Prepaid Salaries/Benefits,Asset,Other Current Assets,USD,True,12530
+12540,Prepaid Postage,Asset,Other Current Assets,USD,True,12540
+13000,Investments (Book Value),Asset,Investments (Book Value),USD,True,13000
+13001,Investment Domestic ETF (Book),Asset,Investments (Book Value),USD,True,13001
+13002,Investments Intl ETF (Book),Asset,Investments (Book Value),USD,True,13002
+13003,Investments Global ETF (Book),Asset,Investments (Book Value),USD,True,13003
+13004,Investments SIO (Book),Asset,Investments (Book Value),USD,True,13004
+13010,Investment Cash Equivalents,Asset,Investments (Cash),USD,True,13010
+13015,Investments - TIPS (Book),Asset,Investments (Book Value),USD,True,13015
+13020,Investment Market Change,Asset,Investment Market Change,USD,True,13020
+13021,Investment Change - Dom. ETF,Asset,Investment Market Change,USD,True,13021
+13022,Investment Change - Intl ETF,Asset,Investment Market Change,USD,True,13022
+13023,Investment Change - Global ETF,Asset,Investment Market Change,USD,True,13023
+13024,Investment Change - SIO,Asset,Investment Market Change,USD,True,13024
+13025,Investment Change - TIPS,Asset,Investment Market Change,USD,True,13025
+13500,Program Related Investments,Asset,Program Related Investments,USD,True,13500
+13510,Program Related Investments NQ,Asset,Program Related Investments,USD,True,13510
+13520,Discount on PRIs,Asset,Program Related Investments,USD,True,13520
+13525,PRI Allowance,Asset,Program Related Investments,USD,True,13525
+13550,PRI - Interest Receivable,Asset,Program Related Investments,USD,True,13550
+14010,Leasehold Improvements,Asset,"Property & Equipment, Net",USD,True,14010
+14015,Accum Depreciation - Leasehold,Asset,"Property & Equipment, Net",USD,True,14015
+14020,Furniture & Equipment,Asset,"Property & Equipment, Net",USD,True,14020
+14025,Accum. Depreciation - Equip,Asset,"Property & Equipment, Net",USD,True,14025
+14030,Computer Hardware/Software,Asset,"Property & Equipment, Net",USD,True,14030
+14035,Accum. Depreciation - Hardware,Asset,"Property & Equipment, Net",USD,True,14035
+14040,Right-of-Use Asset,Asset,"Right-of-Use Asset, Net",USD,True,14040
+14045,Accum. Amortization - ROU Asset,Asset,"Right-of-Use Asset, Net",USD,True,14045
+14050,WIP - Fixed Assets,Asset,"Property & Equipment, Net",USD,True,14050
+15000,"Oil, Gas, & Mineral Rights",Asset,"Oil, Gas, & Mineral Rights",USD,True,15000
+26000,Accounts Payable - General,Liability,Accounts Payable and Accrued Expenses,USD,True,26000
+26010,Investment Fees Payable,Liability,Accounts Payable and Accrued Expenses,USD,True,26010
+26015,Federal Excise Tax Payable,Liability,Federal Excise Tax Payable,USD,True,26015
+26020,Deferred Leasehold Incentive,Liability,Lease Liability,USD,True,26020
+26025,Lease Liability,Liability,Lease Liability,USD,True,26025
+26030,Payroll Payable,Liability,Accounts Payable and Accrued Expenses,USD,True,26030
+26035,Community Shares Fund Payable,Liability,Accounts Payable and Accrued Expenses,USD,True,26035
+26040,United Way Payable,Liability,Accounts Payable and Accrued Expenses,USD,True,26040
+26045,Garnishments Payable,Liability,Accounts Payable and Accrued Expenses,USD,True,26045
+26050,Supplemental Insurance Payable,Liability,Accounts Payable and Accrued Expenses,USD,True,26050
+26055,Employee Cell Phone Payable,Liability,Accounts Payable and Accrued Expenses,USD,True,26055
+26060,Employee 403b Accounts Payable,Liability,Accounts Payable and Accrued Expenses,USD,True,26060
+26070,Employer Medical Prem Payable,Liability,Accounts Payable and Accrued Expenses,USD,True,26070
+26075,Employer Dental Prem Payable,Liability,Accounts Payable and Accrued Expenses,USD,True,26075
+26080,Employee FSA Payable,Liability,Accounts Payable and Accrued Expenses,USD,True,26080
+26085,Employee HSA Payable,Liability,Accounts Payable and Accrued Expenses,USD,True,26085
+26090,Purchased PTO Payable,Liability,Accounts Payable and Accrued Expenses,USD,True,26090
+26095,Employer Life Insurance Payable,Liability,Accounts Payable and Accrued Expenses,USD,True,26095
+26100,Ramp Card,Liability,Accounts Payable and Accrued Expenses,USD,True,26100
+27000,Accrued Expenses - General,Liability,Accounts Payable and Accrued Expenses,USD,True,27000
+27005,Accrued Grant Expense,Liability,Unpaid Grant Commitments,USD,True,27005
+27010,Deferred Federal Excise Taxes,Liability,Federal Excise Tax Payable,USD,True,27010
+27020,Accrued Salaries Expense,Liability,Accounts Payable and Accrued Expenses,USD,True,27020
+27030,Accrued PTO Expense,Liability,Accounts Payable and Accrued Expenses,USD,True,27030
+27040,Investment Settlements Pending,Liability,Securities Settlements Payable,USD,True,27040
+39000,Fund Balance - General,Equity,Unrestricted Net Assets,USD,True,39000
+39050,Fund Balance - Mineral Rights,Equity,Unrestricted Net Assets,USD,True,39050
+39100,Permanently Restricted Assets,Equity,Permanently Restricted Net Assets,USD,True,39100
+39200,Unrestricted Net Assets,Equity,Unrestricted Net Assets,USD,True,39200
+41000,Interest/Dividends (Budget),Revenue,Dividends & Interest,USD,True,41000
+41010,Interest/Dividends,Revenue,Dividends & Interest,USD,True,41010
+41030,Realized Invest Gains/Losses,Revenue,Realized Investment Gains/Losses,USD,True,41030
+41040,Unrealized Invest Gains/Losses,Revenue,Unealized Investment Gains/Losses,USD,True,41040
+41050,Securities Litigation Income,Revenue,Dividends & Interest,USD,True,41050
+41100,PRI Interest Income,Revenue,Dividends & Interest,USD,True,41100
+41110,PRI Imputed Interest,Revenue,Dividends & Interest,USD,True,41110
+41150,Realized Gain/Loss on PRIs,Revenue,Realized Investment Gains/Losses,USD,True,41150
+41200,Conference Fees,Revenue,Other,USD,True,41200
+41300,Miscellaneous Income,Revenue,Other,USD,True,41300
+41400,Gains on Disposal of Assets,Revenue,Other,USD,True,41400
+41500,Contributions,Revenue,Contributions,USD,True,41500
+53000,Grants,Expense,Grants,USD,True,53000
+53005,Grants for Native Orgs,Expense,Grants,USD,True,53005
+53010,Grant Returns,Expense,Grants,USD,True,53010
+53060,Membership Grants,Expense,Grants,USD,True,53060
+53090,Grant/Qual Dist Contingency,Expense,Grants,USD,True,53090
+53100,Imputed Interest Contribution,Expense,Grants,USD,True,53100
+53110,PRI Write Offs,Expense,Grants,USD,True,53110
+54000,Consulting & Professional Fees,Expense,Professional Services,USD,True,54000
+54010,Investment Mgr/Consult Fees,Expense,Professional Services,USD,True,54010
+54015,Legal Fees,Expense,Professional Services,USD,True,54015
+54020,Audit & Tax Preparation Fees,Expense,Professional Services,USD,True,54020
+54025,Other Contracted Services,Expense,Professional Services,USD,True,54025
+54026,Software as a Service,Expense,Professional Services,USD,True,54026
+54030,Contracted Temporary Staffing,Expense,Professional Services,USD,True,54030
+54035,Search & Hiring Expenses,Expense,Professional Services,USD,True,54035
+54040,Marketing & Advertising Svcs,Expense,Occupancy,USD,True,54040
+54050,"Conference, Meetings, Seminars",Expense,Travel Expense,USD,True,54050
+54055,Program-Related Travel,Expense,Travel Expense,USD,True,54055
+54060,Communication Services,Expense,Occupancy,USD,True,54060
+54065,Postage/Delivery Services,Expense,Occupancy,USD,True,54065
+54070,Operating Leases or Rentals,Expense,Occupancy,USD,True,54070
+54075,Bldg & Equip Repair & Maint,Expense,Occupancy,USD,True,54075
+54080,Business Insurance,Expense,Occupancy,USD,True,54080
+54085,Indigenous Land Honor Tax,Expense,Occupancy,USD,True,54085
+55000,General Supplies & Materials,Expense,Occupancy,USD,True,55000
+55005,Subscriptions & Publications,Expense,Occupancy,USD,True,55005
+55010,"Program, Conf & Comm Materials",Expense,Occupancy,USD,True,55010
+55020,Technology Hardware & Software,Expense,Occupancy,USD,True,55020
+56000,Membership Dues & Other Fees,Expense,Miscellaneous Expense,USD,True,56000
+56010,Food & Beverages,Expense,Travel Expense,USD,True,56010
+56015,Special Events/Other Misc Exps,Expense,Miscellaneous Expense,USD,True,56015
+56017,Miscellaneous,Expense,Miscellaneous Expense,USD,True,56017
+56020,Board Compensation,Expense,Salaries & Benefits,USD,True,56020
+56025,Board Development & Field Svc,Expense,Travel Expense,USD,True,56025
+56030,Depreciation Expense,Expense,Depreciation,USD,True,56030
+56040,Credit Loss Expense,Expense,Miscellaneous Expense,USD,True,56040
+56080,Federal Excise Tax Expense,Expense,Excise & Income Taxes,USD,True,56080
+56085,Unrelated Business Income Tax,Expense,Excise & Income Taxes,USD,True,56085
+56090,Miscellaneous - Contingency,Expense,Miscellaneous Expense,USD,True,56090
+58000,Staff Salaries - Regular,Expense,Salaries & Benefits,USD,True,58000
+58010,Staff Salaries - ST Disability,Expense,Salaries & Benefits,USD,True,58010
+58020,Staff Salaries - Severance,Expense,Salaries & Benefits,USD,True,58020
+59000,Employer FICA/Medicare Taxes,Expense,Salaries & Benefits,USD,True,59000
+59001,Health Insurance,Expense,Salaries & Benefits,USD,True,59001
+59002,Dental Insurance,Expense,Salaries & Benefits,USD,True,59002
+59003,Life/AD&D Insurance,Expense,Salaries & Benefits,USD,True,59003
+59004,Transportation Allowance,Expense,Salaries & Benefits,USD,True,59004
+59005,Pension Contribution,Expense,Salaries & Benefits,USD,True,59005
+59006,403(b) Employer Match,Expense,Salaries & Benefits,USD,True,59006
+59007,Workers Compensation,Expense,Salaries & Benefits,USD,True,59007
+59008,Unemployment Compensation,Expense,Salaries & Benefits,USD,True,59008
+59009,Staff Tuition Reimbursement,Expense,Salaries & Benefits,USD,True,59009
+70000,Capital Budget,Expense,Capital,USD,True,70000
