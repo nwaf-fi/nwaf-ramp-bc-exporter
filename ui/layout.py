@@ -44,7 +44,7 @@ def render_sidebar(user_name: str, user_email: str):
         st.sidebar.caption(f"📧 {user_email}")
     st.sidebar.markdown("---")
 
-    if st.sidebar.button("🚪 Log out", use_container_width=True):
+    if st.sidebar.button("🚪 Log out", use_container_width=True, key='logout_btn'):
         st.session_state.pop(SESSION_TOKEN_KEY, None)
         st.query_params.clear()
         logout_url = (

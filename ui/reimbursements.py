@@ -86,7 +86,7 @@ def render_reimbursements_tab(cfg, env):
                 import logging
                 logging.exception("Preview error: %s", tb)
 
-    if st.button("Generate Reimbursements for date range"):
+    if st.button("Generate Reimbursements for date range", key='gen_reim_btn'):
         with st.spinner("Fetching reimbursements and preparing export..."):
             try:
                 client = RampClient(
