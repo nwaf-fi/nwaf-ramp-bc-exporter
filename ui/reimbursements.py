@@ -77,6 +77,15 @@ def render_reimbursements_tab(cfg, env):
                         fname = f"reimbursements_{reim_start.strftime('%Y%m%d')}_{reim_end.strftime('%Y%m%d')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
                         st.download_button("Download Reimbursements CSV (preview)", data=csv_bytes, file_name=fname, mime='text/csv', key='reimbursements_download_preview_csv')
 
+            except Exception as e:
+                import traceback
+                tb = traceback.format_exc()
+                st.error("Error during preview. See details below.")
+                with st.expander("Preview error details (expand for stack trace)"):
+                    st.code(tb)
+                import logging
+                logging.exception("Preview error: %s", tb)
+
 
     if st.button("Generate Reimbursements for date range", key='reimbursements_gen_reim_btn'):
         with st.spinner("Fetching reimbursements and preparing export..."):
