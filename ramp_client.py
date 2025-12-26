@@ -285,6 +285,50 @@ class RampClient:
         except Exception:
             return {}
 
+    def check_accounting_sync_enabled(self) -> bool:
+        """
+        Check whether the current accounting connection supports the API-based
+        accounting sync endpoint (`/developer/v1/accounting/syncs`). Caches result
+        on the client instance to avoid repeated calls.
+        Returns True when the endpoint accepts the request (2xx) and False when
+        the server indicates the accounting connection does not support API syncs
+        (DEVELOPER_7089 or 4xx/404 responses).
+        """
+        if getattr(self, '_accounting_sync_enabled', None) is not None:
+            return self._accounting_sync_enabled
+
+        base = self.base_url.rstrip('/')
+        if 'developer/v1' in base:
+            endpoint = urljoin(base + '/', 'accounting/syncs')
+        else:
+            endpoint = urljoin(base + '/', 'developer/v1/accounting/syncs')
+
+        payload = {'transactions': [{'transaction_id': '__cap_check__', 'synced': False}]}
+        try:
+            resp = self.session.post(endpoint, json=payload, timeout=8)
+            status = resp.status_code
+            if 200 <= status < 300:
+                self._accounting_sync_enabled = True
+                self._accounting_sync_message = f"{status} at {endpoint}"
+                return True
+            # If the server explicitly returns DEVELOPER_7089 or 4xx, consider unsupported
+            try:
+                body = resp.json()
+            except Exception:
+                body = resp.text or ''
+            msg = str(body)
+            if 'DEVELOPER_7089' in msg or status == 400 or status == 404:
+                self._accounting_sync_enabled = False
+                self._accounting_sync_message = f"{status} at {endpoint}: {msg[:1000]}"
+                return False
+            # For other responses, cache False but keep message
+            self._accounting_sync_enabled = False
+            self._accounting_sync_message = f"{status} at {endpoint}: {str(msg)[:1000]}"
+            return False
+        except Exception as ex:
+            self._accounting_sync_enabled = False
+            self._accounting_sync_message = str(ex)
+            return False
     def _get_paginated_data(self, endpoint: str, status: Optional[str] = None,
                            start_date: Optional[str] = None, end_date: Optional[str] = None,
                            page_size: int = 200, **extra_params) -> List[Dict]:

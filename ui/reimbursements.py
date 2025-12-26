@@ -246,9 +246,22 @@ def render_reimbursements_tab(cfg, env):
                     with st.expander('Mark reimbursements as synced', expanded=False):
                         st.write(f"{len(reims)} reimbursements are available to mark as synced.")
 
-                        enable_live = st.checkbox('Enable live Ramp sync (will POST to Ramp)', value=False, key='reim_enable_live_sync')
+                        # Capability check
+                        sync_supported = client.check_accounting_sync_enabled()
+                        if not sync_supported:
+                            st.warning('Your accounting connection does not support API-based syncing. See Ramp docs to upgrade the connection.')
+                            st.markdown('[Ramp accounting docs](https://docs.ramp.com/developer-api/v1/guides/accounting)')
+
+                        enable_live = st.checkbox('Enable live Ramp sync (will POST to Ramp)', value=False, key='reim_enable_live_sync', disabled=(not sync_supported))
                         if not enable_live:
-                            st.info('Dry-run mode: no live requests will be sent. Toggle the checkbox above to perform live requests.')
+                            if sync_supported:
+                                st.info('Dry-run mode: no live requests will be sent. Toggle the checkbox above to perform live requests.')
+                            else:
+                                st.info('API-based sync is not available for this accounting connection. Choose Local-only to record syncs locally.')
+
+                        local_only = False
+                        if not sync_supported:
+                            local_only = st.checkbox('Record these reimbursements as synced locally only (no Ramp API calls)', value=True, key='reim_local_only')
 
                         if st.checkbox('I confirm: mark these reimbursements as synced', value=False, key='reim_confirm_mark'):
                             if st.button('Mark reimbursements as synced in Ramp', key='reim_mark_btn'):
@@ -259,28 +272,37 @@ def render_reimbursements_tab(cfg, env):
                                     total = len(reims)
                                     i = 0
 
-                                    # Use a dedicated client for marking with explicit enable_sync
-                                    marker_client = RampClient(
-                                        base_url=cfg['ramp']['base_url'],
-                                        token_url=cfg['ramp']['token_url'],
-                                        client_id=env['RAMP_CLIENT_ID'],
-                                        client_secret=env['RAMP_CLIENT_SECRET'],
-                                        enable_sync=enable_live
-                                    )
-                                    marker_client.authenticate()
+                                    if local_only:
+                                        for r in reims:
+                                            i += 1
+                                            tid = r.get('id')
+                                            results.append({'timestamp': datetime.now().isoformat(), 'transaction_id': tid, 'ok': True, 'message': 'LOCAL_ONLY'})
+                                            progress.progress(i / total)
+                                    else:
+                                        # Use a dedicated client for marking with explicit enable_sync
+                                        marker_client = RampClient(
+                                            base_url=cfg['ramp']['base_url'],
+                                            token_url=cfg['ramp']['token_url'],
+                                            client_id=env['RAMP_CLIENT_ID'],
+                                            client_secret=env['RAMP_CLIENT_SECRET'],
+                                            enable_sync=enable_live
+                                        )
+                                        marker_client.authenticate()
 
-                                    for r in reims:
-                                        i += 1
-                                        tid = r.get('id')
-                                        ok, msg = marker_client.mark_transaction_synced_with_message(tid, sync_reference=sync_ref)
-                                        results.append({'timestamp': datetime.now().isoformat(), 'transaction_id': tid, 'ok': ok, 'message': msg})
-                                        progress.progress(i / total)
+                                        for r in reims:
+                                            i += 1
+                                            tid = r.get('id')
+                                            ok, msg = marker_client.mark_transaction_synced_with_message(tid, sync_reference=sync_ref)
+                                            results.append({'timestamp': datetime.now().isoformat(), 'transaction_id': tid, 'ok': ok, 'message': msg})
+                                            progress.progress(i / total)
 
                                     successes = sum(1 for res in results if res['ok'])
                                     failures = len(results) - successes
 
-                                    if enable_live:
+                                    if (not local_only) and enable_live:
                                         st.success(f"Ramp sync complete: {successes} succeeded, {failures} failed.")
+                                    elif local_only:
+                                        st.success(f"Local-only: {successes} recorded locally as synced.")
                                     else:
                                         st.info(f"Dry run complete: {successes} would be marked synced (no live requests were sent).")
 
@@ -298,7 +320,7 @@ def render_reimbursements_tab(cfg, env):
                                         st.write(res_df)
 
                                     # If live sync actually performed and succeeded for some items, add to session exclusion set
-                                    if enable_live and successes:
+                                    if (not local_only) and enable_live and successes:
                                         synced_ids = set(st.session_state.get('synced_reimbursements', []))
                                         for rres in results:
                                             if rres.get('ok'):

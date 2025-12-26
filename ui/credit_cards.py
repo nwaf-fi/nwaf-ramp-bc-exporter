@@ -112,9 +112,23 @@ def render_credit_cards_tab(cfg, env):
                             st.write(f"{len(cc_cached)} transactions prepared for export (total ${tx_total:,.2f}).")
 
                             with st.expander('Mark transactions as synced', expanded=False):
-                                enable_live = st.checkbox('Enable live Ramp sync (will POST to Ramp)', value=False, key='cc_enable_live_sync')
+                                # Check whether API-based accounting sync is supported by the connected accounting connection
+                                sync_supported = client.check_accounting_sync_enabled()
+                                if not sync_supported:
+                                    st.warning('Your accounting connection does not support API-based syncing. See the Ramp docs and consider upgrading the accounting connection to an API-enabled connection.')
+                                    st.markdown('[Ramp accounting docs](https://docs.ramp.com/developer-api/v1/guides/accounting)')
+
+                                # Live sync toggle: disabled if API sync is not supported
+                                enable_live = st.checkbox('Enable live Ramp sync (will POST to Ramp)', value=False, key='cc_enable_live_sync', disabled=(not sync_supported))
                                 if not enable_live:
-                                    st.info('Dry-run mode: no live requests will be sent. Toggle above to perform live requests.')
+                                    if sync_supported:
+                                        st.info('Dry-run mode: no live requests will be sent. Toggle above to perform live requests.')
+                                    else:
+                                        st.info('API-based sync is not available for this accounting connection. Choose Local-only to record syncs locally.')
+
+                                local_only = False
+                                if not sync_supported:
+                                    local_only = st.checkbox('Record these transactions as synced locally only (no Ramp API calls)', value=True, key='cc_local_only')
 
                                 if st.checkbox('I confirm: mark these transactions as synced', value=False, key='cc_confirm_mark'):
                                     if st.button('Mark these transactions as synced in Ramp', key='cc_mark_btn'):
@@ -125,27 +139,37 @@ def render_credit_cards_tab(cfg, env):
                                             total = len(cc_cached)
                                             i = 0
 
-                                            marker = RampClient(
-                                                base_url=cfg['ramp']['base_url'],
-                                                token_url=cfg['ramp']['token_url'],
-                                                client_id=env['RAMP_CLIENT_ID'],
-                                                client_secret=env['RAMP_CLIENT_SECRET'],
-                                                enable_sync=enable_live
-                                            )
-                                            marker.authenticate()
+                                            if local_only:
+                                                # Record local-only successes
+                                                for t in cc_cached:
+                                                    i += 1
+                                                    tid = t.get('id')
+                                                    results.append({'timestamp': datetime.now().isoformat(), 'transaction_id': tid, 'ok': True, 'message': 'LOCAL_ONLY'})
+                                                    progress.progress(i / total)
+                                            else:
+                                                marker = RampClient(
+                                                    base_url=cfg['ramp']['base_url'],
+                                                    token_url=cfg['ramp']['token_url'],
+                                                    client_id=env['RAMP_CLIENT_ID'],
+                                                    client_secret=env['RAMP_CLIENT_SECRET'],
+                                                    enable_sync=enable_live
+                                                )
+                                                marker.authenticate()
 
-                                            for t in cc_cached:
-                                                i += 1
-                                                tid = t.get('id')
-                                                ok, msg = marker.mark_transaction_synced_with_message(tid, sync_reference=sync_ref)
-                                                results.append({'timestamp': datetime.now().isoformat(), 'transaction_id': tid, 'ok': ok, 'message': msg})
-                                                progress.progress(i / total)
+                                                for t in cc_cached:
+                                                    i += 1
+                                                    tid = t.get('id')
+                                                    ok, msg = marker.mark_transaction_synced_with_message(tid, sync_reference=sync_ref)
+                                                    results.append({'timestamp': datetime.now().isoformat(), 'transaction_id': tid, 'ok': ok, 'message': msg})
+                                                    progress.progress(i / total)
 
                                             successes = sum(1 for r in results if r['ok'])
                                             failures = len(results) - successes
 
-                                            if enable_live:
+                                            if (not local_only) and enable_live:
                                                 st.success(f"Ramp sync complete: {successes} succeeded, {failures} failed.")
+                                            elif local_only:
+                                                st.success(f"Local-only: {successes} recorded locally as synced.")
                                             else:
                                                 st.info(f"Dry run complete: {successes} would be marked synced (no live requests were sent).")
 
@@ -161,7 +185,7 @@ def render_credit_cards_tab(cfg, env):
                                                 st.write(res_df)
 
                                             # Record successful syncs in-session to exclude from future pulls
-                                            if enable_live and successes:
+                                            if (not local_only) and enable_live and successes:
                                                 synced_ids = set(st.session_state.get('synced_cc_transactions', []))
                                                 for rres in results:
                                                     if rres.get('ok'):
