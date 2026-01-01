@@ -9,3 +9,4 @@ ramp_transactions.json
 
 # Private ERP configs (do not commit)
 ERP_Config/
+!ERP_Config/chartOfAccounts.csv
