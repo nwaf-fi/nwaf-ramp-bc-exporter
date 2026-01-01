@@ -1,5 +1,7 @@
 
 import requests
+import json
+import uuid
 from typing import Dict, List, Optional
 from urllib.parse import urljoin
 
@@ -229,6 +231,70 @@ class RampClient:
             print(f"❌ Sync exception at {endpoint}: {ex}")
             return False, str(ex)
 
+    def post_accounting_syncs(self, successful_syncs: list = None, failed_syncs: list = None, sync_type: str = 'TRANSACTION_SYNC', idempotency_key: str = None, dry_run: bool = True):
+        """Post a syncs report to `/developer/v1/accounting/syncs`.
+
+        Constructs a payload with required top-level fields per Ramp docs:
+          - idempotency_key (string UUID)
+          - sync_type (e.g., TRANSACTION_SYNC or REIMBURSEMENT_SYNC)
+          - successful_syncs: list of {id: <txn_id>, reference_id: <erp_ref>}
+          - failed_syncs: list of {id: <txn_id>, error: {message: ...}}
+
+        When `dry_run` is True the function will not POST and will instead return
+        (True, {'endpoint': endpoint, 'payload_preview': payload_preview}).
+        When `dry_run` is False, the function will POST and return (ok, info).
+        """
+        base = self.base_url.rstrip('/')
+        if 'developer/v1' in base:
+            endpoint = urljoin(base + '/', 'accounting/syncs')
+        else:
+            endpoint = urljoin(base + '/', 'developer/v1/accounting/syncs')
+
+        if successful_syncs is None:
+            successful_syncs = []
+        if failed_syncs is None:
+            failed_syncs = []
+
+        # Ensure we do not pass malformed entries
+        def _normalize_success(s):
+            return {'id': s.get('id') or s.get('transaction_id') or s.get('transactionId'), 'reference_id': s.get('reference_id') or s.get('referenceId')}
+
+        def _normalize_failed(f):
+            return {'id': f.get('id') or f.get('transaction_id') or f.get('transactionId'), 'error': f.get('error') or {'message': f.get('message') or 'Unknown error'}}
+
+        payload = {
+            'idempotency_key': idempotency_key or str(uuid.uuid4()),
+            'sync_type': sync_type,
+            'successful_syncs': [_normalize_success(s) for s in successful_syncs],
+            'failed_syncs': [_normalize_failed(f) for f in failed_syncs]
+        }
+
+        # Pretty preview for dry-run
+        try:
+            preview = json.dumps(payload, ensure_ascii=False)[:1000]
+        except Exception:
+            preview = '<unserializable-payload>'
+
+        print(f"📡 Accounting syncs endpoint: {endpoint}")
+        print(f"🔎 Sync payload preview: {preview}")
+
+        if dry_run:
+            return True, {'endpoint': endpoint, 'payload_preview': preview}
+
+        try:
+            resp = self.session.post(endpoint, json=payload, timeout=30)
+            status = resp.status_code
+            try:
+                data = resp.json()
+            except Exception:
+                data = resp.text
+            if 200 <= status < 300:
+                return True, {'status': status, 'response': data}
+            else:
+                return False, {'status': status, 'response': data}
+        except Exception as ex:
+            return False, {'error': str(ex)}
+
     def is_transaction_synced(self, transaction: Dict) -> bool:
         """Heuristic check whether a transaction object is already marked as synced.
 
@@ -329,6 +395,108 @@ class RampClient:
             self._accounting_sync_enabled = False
             self._accounting_sync_message = str(ex)
             return False
+
+    def create_accounting_connection(self, connection_payload: dict, dry_run: bool = True):
+        """
+        Create (or update) an API-based accounting connection in Ramp.
+
+        - `connection_payload` should be the dict payload as documented by Ramp's
+          `POST /accounting/connection` endpoint (usually includes provider, config, and chart-of-accounts payload).
+        - When `dry_run` is True the method will not perform the POST; it will
+          instead return the endpoint and a short payload preview to let the
+          caller inspect before applying.
+
+        Returns a tuple `(ok: bool, info: str|dict)` where `ok` indicates whether
+        the operation was successful (or the dry-run was prepared), and `info`
+        contains either the response or a diagnostic message.
+        """
+        base = self.base_url.rstrip('/')
+        if 'developer/v1' in base:
+            endpoint = urljoin(base + '/', 'accounting/connection')
+        else:
+            endpoint = urljoin(base + '/', 'developer/v1/accounting/connection')
+
+        # Prepare a small debug payload preview
+        try:
+            preview = json.dumps(connection_payload)[:1000]
+        except Exception:
+            preview = '<unserializable-payload>'
+
+        print(f"📦 Accounting connection endpoint: {endpoint}")
+        print(f"🔎 Payload preview: {preview}")
+
+        if dry_run:
+            return True, {'endpoint': endpoint, 'payload_preview': preview}
+
+        try:
+            resp = self.session.post(endpoint, json=connection_payload, timeout=60)
+            status = resp.status_code
+            try:
+                data = resp.json()
+            except Exception:
+                data = resp.text
+            if 200 <= status < 300:
+                return True, {'status': status, 'response': data}
+            else:
+                return False, {'status': status, 'response': data}
+        except Exception as ex:
+            return False, {'error': str(ex)}
+
+    def upload_gl_accounts(self, gl_accounts: List[Dict], dry_run: bool = True, batch_size: int = 500):
+        """Upload GL accounts to Ramp in batches using POST /developer/v1/accounting/accounts.
+
+        - `gl_accounts` should be a list of dicts matching Ramp's GL account schema
+          (e.g., keys like `classification`, `code`, `id`, `name`).
+        - When `dry_run` is True the method will not POST but will return a
+          per-batch preview summary.
+
+        Returns `(ok: bool, results: List[Dict])` where each result dict contains
+        batch number, ok status, count, and server response (or preview info).
+        """
+        base = self.base_url.rstrip('/')
+        if 'developer/v1' in base:
+            endpoint = urljoin(base + '/', 'accounting/accounts')
+        else:
+            endpoint = urljoin(base + '/', 'developer/v1/accounting/accounts')
+
+        results = []
+        total = len(gl_accounts)
+        if total == 0:
+            return True, [{'batch': 0, 'ok': True, 'count': 0, 'status': 'no_accounts'}]
+
+        for i in range(0, total, batch_size):
+            batch_num = (i // batch_size) + 1
+            batch = gl_accounts[i:i + batch_size]
+            payload = {'gl_accounts': batch}
+            try:
+                preview = json.dumps(payload)[:1000]
+            except Exception:
+                preview = '<unserializable-payload>'
+            print(f"🔎 Upload GL accounts preview (batch {batch_num}/{(total+batch_size-1)//batch_size}): {preview}")
+
+            if dry_run:
+                results.append({'batch': batch_num, 'ok': True, 'status': 'dry-run', 'count': len(batch)})
+                continue
+
+            try:
+                resp = self.session.post(endpoint, json=payload, timeout=60)
+                status = resp.status_code
+                try:
+                    data = resp.json()
+                except Exception:
+                    data = resp.text
+                ok = (200 <= status < 300)
+                results.append({'batch': batch_num, 'ok': ok, 'status': status, 'response': data, 'count': len(batch)})
+                # Per docs batch uploads are all-or-nothing per call; stop on failure
+                if not ok:
+                    break
+            except Exception as ex:
+                results.append({'batch': batch_num, 'ok': False, 'error': str(ex), 'count': len(batch)})
+                break
+
+        overall_ok = all(r.get('ok') for r in results)
+        return overall_ok, results
+
     def _get_paginated_data(self, endpoint: str, status: Optional[str] = None,
                            start_date: Optional[str] = None, end_date: Optional[str] = None,
                            page_size: int = 200, **extra_params) -> List[Dict]:

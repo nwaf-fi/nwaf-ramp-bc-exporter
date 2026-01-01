@@ -252,10 +252,19 @@ def render_reimbursements_tab(cfg, env):
                             st.warning('Your accounting connection does not support API-based syncing. See Ramp docs to upgrade the connection.')
                             st.markdown('[Ramp accounting docs](https://docs.ramp.com/developer-api/v1/guides/accounting)')
 
-                        enable_live = st.checkbox('Enable live Ramp sync (will POST to Ramp)', value=False, key='reim_enable_live_sync', disabled=(not sync_supported))
+                        enable_live = st.checkbox(
+                            'Enable live Ramp sync',
+                            value=False,
+                            key='reim_enable_live_sync',
+                            disabled=(not sync_supported),
+                            help=(
+                                'When enabled, the app will send ONE single request to Ramp to mark ALL selected reimbursements as synced. '
+                                'This is faster and safer than sending one request per reimbursement. Leave unchecked to perform a dry run (no live requests).'
+                            ),
+                        )
                         if not enable_live:
                             if sync_supported:
-                                st.info('Dry-run mode: no live requests will be sent. Toggle the checkbox above to perform live requests.')
+                                st.info('Dry-run mode: no live requests will be sent. Toggle the checkbox above to perform a single batch request when you are ready.')
                             else:
                                 st.info('API-based sync is not available for this accounting connection. Choose Local-only to record syncs locally.')
 
@@ -289,11 +298,38 @@ def render_reimbursements_tab(cfg, env):
                                         )
                                         marker_client.authenticate()
 
+                                        # Batch POST using post_accounting_syncs (preferred over per-item POSTs)
+                                        successful_syncs = []
+                                        failed_syncs = []
+                                        for r in reims:
+                                            successful_syncs.append({'id': r.get('id'), 'reference_id': sync_ref})
+
+                                        # dry_run flag: when enable_live is True we actually POST (dry_run=False)
+                                        dry_run_flag = not enable_live
+
+                                        ok_post, info_post = marker_client.post_accounting_syncs(
+                                            successful_syncs=successful_syncs,
+                                            failed_syncs=failed_syncs,
+                                            sync_type='REIMBURSEMENT_SYNC',
+                                            idempotency_key=sync_ref,
+                                            dry_run=dry_run_flag
+                                        )
+
+                                        # Build per-item results and update progress for the UI
+                                        i = 0
                                         for r in reims:
                                             i += 1
                                             tid = r.get('id')
-                                            ok, msg = marker_client.mark_transaction_synced_with_message(tid, sync_reference=sync_ref)
-                                            results.append({'timestamp': datetime.now().isoformat(), 'transaction_id': tid, 'ok': ok, 'message': msg})
+                                            if ok_post:
+                                                # For dry-run we return a payload preview dict; for real calls we may get a response dict
+                                                if isinstance(info_post, dict):
+                                                    msg = json.dumps(info_post, ensure_ascii=False)[:1000]
+                                                else:
+                                                    msg = str(info_post)
+                                            else:
+                                                msg = str(info_post)
+
+                                            results.append({'timestamp': datetime.now().isoformat(), 'transaction_id': tid, 'ok': bool(ok_post), 'message': msg})
                                             progress.progress(i / total)
 
                                     successes = sum(1 for res in results if res['ok'])
