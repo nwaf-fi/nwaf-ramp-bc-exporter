@@ -1,0 +1,147 @@
+﻿number,displayName,category,subCategory
+11000,Cash - Wells Fargo,Assets,Cash
+11005,Cash - Northern Trust,Assets,Cash
+11010,Cash - Drake Bank,Assets,Cash
+11050,Petty Cash,Assets,Cash
+11500,Accrued Investment Income,Assets,Accrued Investment Income
+12000,Federal Excise Tax Receivable,Assets,Other Current Assets
+12010,Employee Receivable,Assets,Other Current Assets
+12020,Credit Card Receivable,Assets,Other Current Assets
+12030,Employee Medical Premiums Rec,Assets,Other Current Assets
+12032,Employee Dental Premiums Rec,Assets,Other Current Assets
+12035,Employee Cell Phone Receivable,Assets,Other Current Assets
+12040,LTD Premium Receivable,Assets,Other Current Assets
+12050,COBRA Receivable,Assets,Other Current Assets
+12100,Miscellaneous Receivables,Assets,Other Current Assets
+12200,Tenant Receivable,Assets,Other Current Assets
+12300,Grants Receivable,Assets,Grants Receivable
+12500,Prepaid General Expenses,Assets,Other Current Assets
+12510,Prepaid Rent,Assets,Other Current Assets
+12520,Prepaid Business Insurance,Assets,Other Current Assets
+12530,Prepaid Salaries/Benefits,Assets,Other Current Assets
+12540,Prepaid Postage,Assets,Other Current Assets
+13000,Investments (Book Value),Assets,Investments (Book Value)
+13001,Investment Domestic ETF (Book),Assets,Investments (Book Value)
+13002,Investments Intl ETF (Book),Assets,Investments (Book Value)
+13003,Investments Global ETF (Book),Assets,Investments (Book Value)
+13004,Investments SIO (Book),Assets,Investments (Book Value)
+13010,Investment Cash Equivalents,Assets,Investments (Cash)
+13015,Investments - TIPS (Book),Assets,Investments (Book Value)
+13020,Investment Market Change,Assets,Investment Market Change
+13021,Investment Change - Dom. ETF,Assets,Investment Market Change
+13022,Investment Change - Intl ETF,Assets,Investment Market Change
+13023,Investment Change - Global ETF,Assets,Investment Market Change
+13024,Investment Change - SIO,Assets,Investment Market Change
+13025,Investment Change - TIPS,Assets,Investment Market Change
+13500,Program Related Investments,Assets,Program Related Investments
+13510,Program Related Investments NQ,Assets,Program Related Investments
+13520,Discount on PRIs,Assets,Program Related Investments
+13525,PRI Allowance,Assets,Program Related Investments
+13550,PRI - Interest Receivable,Assets,Program Related Investments
+14010,Leasehold Improvements,Assets,"Property & Equipment, Net"
+14015,Accum Depreciation - Leasehold,Assets,"Property & Equipment, Net"
+14020,Furniture & Equipment,Assets,"Property & Equipment, Net"
+14025,Accum. Depreciation - Equip,Assets,"Property & Equipment, Net"
+14030,Computer Hardware/Software,Assets,"Property & Equipment, Net"
+14035,Accum. Depreciation - Hardware,Assets,"Property & Equipment, Net"
+14040,Right-of-Use Asset,Assets,"Right-of-Use Asset, Net"
+14045,Accum. Amortization - ROU Asset,Assets,"Right-of-Use Asset, Net"
+14050,WIP - Fixed Assets,Assets,"Property & Equipment, Net"
+15000,"Oil, Gas, & Mineral Rights",Assets,"Oil, Gas, & Mineral Rights"
+26000,Accounts Payable - General,Liabilities,Accounts Payable and Accrued Expenses
+26010,Investment Fees Payable,Liabilities,Accounts Payable and Accrued Expenses
+26015,Federal Excise Tax Payable,Liabilities,Federal Excise Tax Payable
+26020,Deferred Leasehold Incentive,Liabilities,Lease Liability
+26025,Lease Liability,Liabilities,Lease Liability
+26030,Payroll Payable,Liabilities,Accounts Payable and Accrued Expenses
+26035,Community Shares Fund Payable,Liabilities,Accounts Payable and Accrued Expenses
+26040,United Way Payable,Liabilities,Accounts Payable and Accrued Expenses
+26045,Garnishments Payable,Liabilities,Accounts Payable and Accrued Expenses
+26050,Supplemental Insurance Payable,Liabilities,Accounts Payable and Accrued Expenses
+26055,Employee Cell Phone Payable,Liabilities,Accounts Payable and Accrued Expenses
+26060,Employee 403b Accounts Payable,Liabilities,Accounts Payable and Accrued Expenses
+26070,Employer Medical Prem Payable,Liabilities,Accounts Payable and Accrued Expenses
+26075,Employer Dental Prem Payable,Liabilities,Accounts Payable and Accrued Expenses
+26080,Employee FSA Payable,Liabilities,Accounts Payable and Accrued Expenses
+26085,Employee HSA Payable,Liabilities,Accounts Payable and Accrued Expenses
+26090,Purchased PTO Payable,Liabilities,Accounts Payable and Accrued Expenses
+26095,Employer Life Insurance Payable,Liabilities,Accounts Payable and Accrued Expenses
+26100,Ramp Card,Liabilities,Accounts Payable and Accrued Expenses
+27000,Accrued Expenses - General,Liabilities,Accounts Payable and Accrued Expenses
+27005,Accrued Grant Expense,Liabilities,Unpaid Grant Commitments
+27010,Deferred Federal Excise Taxes,Liabilities,Federal Excise Tax Payable
+27020,Accrued Salaries Expense,Liabilities,Accounts Payable and Accrued Expenses
+27030,Accrued PTO Expense,Liabilities,Accounts Payable and Accrued Expenses
+27040,Investment Settlements Pending,Liabilities,Securities Settlements Payable
+39000,Fund Balance - General,Equity,Unrestricted Net Assets
+39050,Fund Balance - Mineral Rights,Equity,Unrestricted Net Assets
+39100,Permanently Restricted Assets,Equity,Permanently Restricted Net Assets
+39200,Unrestricted Net Assets,Equity,Unrestricted Net Assets
+41000,Interest/Dividends (Budget),Income,Dividends & Interest
+41010,Interest/Dividends,Income,Dividends & Interest
+41030,Realized Invest Gains/Losses,Income,Realized Investment Gains/Losses
+41040,Unrealized Invest Gains/Losses,Income,Unealized Investment Gains/Losses
+41050,Securities Litigation Income,Income,Dividends & Interest
+41100,PRI Interest Income,Income,Dividends & Interest
+41110,PRI Imputed Interest,Income,Dividends & Interest
+41150,Realized Gain/Loss on PRIs,Income,Realized Investment Gains/Losses
+41200,Conference Fees,Income,Other
+41300,Miscellaneous Income,Income,Other
+41400,Gains on Disposal of Assets,Income,Other
+41500,Contributions,Income,Contributions
+53000,Grants,Expense,Grants
+53005,Grants for Native Orgs,Expense,Grants
+53010,Grant Returns,Expense,Grants
+53060,Membership Grants,Expense,Grants
+53090,Grant/Qual Dist Contingency,Expense,Grants
+53100,Imputed Interest Contribution,Expense,Grants
+53110,PRI Write Offs,Expense,Grants
+54000,Consulting & Professional Fees,Expense,Professional Services
+54010,Investment Mgr/Consult Fees,Expense,Professional Services
+54015,Legal Fees,Expense,Professional Services
+54020,Audit & Tax Preparation Fees,Expense,Professional Services
+54025,Other Contracted Services,Expense,Professional Services
+54026,Software as a Service,Expense,Professional Services
+54030,Contracted Temporary Staffing,Expense,Professional Services
+54035,Search & Hiring Expenses,Expense,Professional Services
+54040,Marketing & Advertising Svcs,Expense,Occupancy
+54050,"Conference, Meetings, Seminars",Expense,Travel Expense
+54051,Airfare,Expense,Travel Expense
+54052,Hotel & Lodging,Expense,Travel Expense
+54053,Transportation & Parking,Expense,Travel Expense
+54055,Program-Related Travel,Expense,Travel Expense
+54060,Communication Services,Expense,Occupancy
+54065,Postage/Delivery Services,Expense,Occupancy
+54070,Operating Leases or Rentals,Expense,Occupancy
+54075,Bldg & Equip Repair & Maint,Expense,Occupancy
+54080,Business Insurance,Expense,Occupancy
+54085,Indigenous Land Honor Tax,Expense,Occupancy
+55000,General Supplies & Materials,Expense,Occupancy
+55005,Subscriptions & Publications,Expense,Occupancy
+55010,"Program, Conf & Comm Materials",Expense,Occupancy
+55020,Technology Hardware & Software,Expense,Occupancy
+56000,Membership Dues & Other Fees,Expense,Miscellaneous Expense
+56010,Food & Beverages,Expense,Travel Expense
+56015,Special Events/Other Misc Exps,Expense,Miscellaneous Expense
+56017,Miscellaneous,Expense,Miscellaneous Expense
+56020,Board Compensation,Expense,Salaries & Benefits
+56025,Board Development & Field Svc,Expense,Travel Expense
+56030,Depreciation Expense,Expense,Depreciation
+56040,Credit Loss Expense,Expense,Miscellaneous Expense
+56080,Federal Excise Tax Expense,Expense,Excise & Income Taxes
+56085,Unrelated Business Income Tax,Expense,Excise & Income Taxes
+56090,Miscellaneous - Contingency,Expense,Miscellaneous Expense
+58000,Staff Salaries - Regular,Expense,Salaries & Benefits
+58010,Staff Salaries - ST Disability,Expense,Salaries & Benefits
+58020,Staff Salaries - Severance,Expense,Salaries & Benefits
+59000,Employer FICA/Medicare Taxes,Expense,Salaries & Benefits
+59001,Health Insurance,Expense,Salaries & Benefits
+59002,Dental Insurance,Expense,Salaries & Benefits
+59003,Life/AD&D Insurance,Expense,Salaries & Benefits
+59004,Transportation Allowance,Expense,Salaries & Benefits
+59005,Pension Contribution,Expense,Salaries & Benefits
+59006,403(b) Employer Match,Expense,Salaries & Benefits
+59007,Workers Compensation,Expense,Salaries & Benefits
+59008,Unemployment Compensation,Expense,Salaries & Benefits
+59009,Staff Tuition Reimbursement,Expense,Salaries & Benefits
+70000,Capital Budget,Expense,Capital
