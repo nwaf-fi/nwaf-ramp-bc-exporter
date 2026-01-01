@@ -187,48 +187,33 @@ class RampClient:
             print(f"🔍 {msg}")
             return True, msg
 
-        # Build canonical endpoint (prefer developer/v1 accounting syncs)
-        base = self.base_url.rstrip('/')
-        if 'developer/v1' in base:
-            endpoint = urljoin(base + '/', 'accounting/syncs')
-        else:
-            endpoint = urljoin(base + '/', 'developer/v1/accounting/syncs')
-
-        payload = {
-            'transactions': [
-                {
-                    'transaction_id': transaction_id,
-                    'synced': True,
-                    'sync_system': 'business_central'
-                }
-            ]
-        }
-        if sync_reference:
-            payload['transactions'][0]['sync_reference'] = sync_reference
-
-        # Debug/logging for diagnostics (truncated payload)
+        # For live syncs, delegate to the canonical batch `post_accounting_syncs` helper
         try:
-            pstr = str(payload)
-        except Exception:
-            pstr = '<unserializable-payload>'
-        print(f"🔁 Sync POST -> {endpoint} payload={pstr[:1000]}")
+            successful_syncs = [{'id': transaction_id}]
+            if sync_reference:
+                successful_syncs[0]['reference_id'] = sync_reference
 
-        try:
-            resp = self.session.post(endpoint, json=payload, timeout=10)
-            status = resp.status_code
-            try:
-                body = resp.text
-            except Exception:
-                body = ''
-            body_snip = (body or '')[:1000]
-            if 200 <= status < 300:
-                print(f"✅ Sync success {status} at {endpoint}")
-                return True, f"{status} at {endpoint}"
+            # Use dry_run=False because enable_sync is True here
+            ok, info = self.post_accounting_syncs(successful_syncs=successful_syncs, failed_syncs=[], sync_type='TRANSACTION_SYNC', dry_run=False)
+
+            # Normalize returned info into a message string for callers
+            if ok:
+                if isinstance(info, dict) and info.get('status'):
+                    msg = f"{info.get('status')} at {self.base_url.rstrip('/')}/developer/v1/accounting/syncs"
+                else:
+                    msg = str(info)
+                print(f"✅ Sync success for transaction {transaction_id}: {msg}")
+                return True, msg
             else:
-                print(f"❌ Sync failed {status} at {endpoint}: {body_snip}")
-                return False, f"{status} at {endpoint}: {body_snip}"
+                # info may be dict with status/response or error string
+                if isinstance(info, dict):
+                    msg = f"{info.get('status')} at {self.base_url.rstrip('/')}/developer/v1/accounting/syncs: {str(info.get('response'))[:1000]}"
+                else:
+                    msg = str(info)
+                print(f"❌ Sync failed for transaction {transaction_id}: {msg}")
+                return False, msg
         except Exception as ex:
-            print(f"❌ Sync exception at {endpoint}: {ex}")
+            print(f"❌ Sync exception for transaction {transaction_id}: {ex}")
             return False, str(ex)
 
     def post_accounting_syncs(self, successful_syncs: list = None, failed_syncs: list = None, sync_type: str = 'TRANSACTION_SYNC', idempotency_key: str = None, dry_run: bool = True):
