@@ -369,28 +369,28 @@ class RampClient:
         else:
             endpoint = urljoin(base + '/', 'developer/v1/accounting/syncs')
 
-        payload = {'transactions': [{'transaction_id': '__cap_check__', 'synced': False}]}
+        # Use canonical syncs helper for capability checks. We perform a dry-run preview
+        # to validate the payload shape Ramp expects without sending writes.
         try:
-            resp = self.session.post(endpoint, json=payload, timeout=8)
-            status = resp.status_code
-            if 200 <= status < 300:
+            ok, info = self.post_accounting_syncs(
+                successful_syncs=[{'id': '__cap_check__', 'reference_id': 'cap_check'}],
+                failed_syncs=[],
+                sync_type='TRANSACTION_SYNC',
+                dry_run=True
+            )
+            if ok:
                 self._accounting_sync_enabled = True
-                self._accounting_sync_message = f"{status} at {endpoint}"
+                payload_preview = info.get('payload_preview') if isinstance(info, dict) else str(info)
+                self._accounting_sync_message = f"dry-run preview at {endpoint}: {str(payload_preview)[:1000]}"
                 return True
-            # If the server explicitly returns DEVELOPER_7089 or 4xx, consider unsupported
-            try:
-                body = resp.json()
-            except Exception:
-                body = resp.text or ''
-            msg = str(body)
-            if 'DEVELOPER_7089' in msg or status == 400 or status == 404:
+            else:
+                # `info` may be a dict with status/response or an error string
                 self._accounting_sync_enabled = False
-                self._accounting_sync_message = f"{status} at {endpoint}: {msg[:1000]}"
+                if isinstance(info, dict) and 'response' in info:
+                    self._accounting_sync_message = f"{info.get('status')} at {endpoint}: {str(info.get('response'))[:1000]}"
+                else:
+                    self._accounting_sync_message = str(info)
                 return False
-            # For other responses, cache False but keep message
-            self._accounting_sync_enabled = False
-            self._accounting_sync_message = f"{status} at {endpoint}: {str(msg)[:1000]}"
-            return False
         except Exception as ex:
             self._accounting_sync_enabled = False
             self._accounting_sync_message = str(ex)
