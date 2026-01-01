@@ -202,10 +202,17 @@ class RampClient:
             # Use dry_run=False because enable_sync is True here
             ok, info = self.post_accounting_syncs(successful_syncs=successful_syncs, failed_syncs=[], sync_type='TRANSACTION_SYNC', dry_run=False)
 
+            # Determine endpoint consistently to avoid duplicate segments in messages
+            base = self.base_url.rstrip('/')
+            if 'developer/v1' in base:
+                endpoint = urljoin(base + '/', 'accounting/syncs')
+            else:
+                endpoint = urljoin(base + '/', 'developer/v1/accounting/syncs')
+
             # Normalize returned info into a message string for callers
             if ok:
                 if isinstance(info, dict) and info.get('status'):
-                    msg = f"{info.get('status')} at {self.base_url.rstrip('/')}/developer/v1/accounting/syncs"
+                    msg = f"{info.get('status')} at {endpoint}"
                 else:
                     msg = str(info)
                 print(f"✅ Sync success for transaction {transaction_id}: {msg}")
@@ -213,7 +220,7 @@ class RampClient:
             else:
                 # info may be dict with status/response or error string
                 if isinstance(info, dict):
-                    msg = f"{info.get('status')} at {self.base_url.rstrip('/')}/developer/v1/accounting/syncs: {str(info.get('response'))[:1000]}"
+                    msg = f"{info.get('status')} at {endpoint}: {str(info.get('response'))[:1000]}"
                 else:
                     msg = str(info)
                 print(f"❌ Sync failed for transaction {transaction_id}: {msg}")
