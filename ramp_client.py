@@ -7,7 +7,13 @@ from urllib.parse import urljoin
 
 class RampClient:
     def __init__(self, base_url: str, token_url: str, client_id: str, client_secret: str, enable_sync: bool = False):
-        self.base_url = base_url.rstrip('/')
+        # Normalize base_url to avoid duplicated segments like '/developer/v1/developer/v1'
+        b = base_url.rstrip('/')
+        if '/developer/v1' in b:
+            first = b.find('/developer/v1')
+            # Keep only up to the first '/developer/v1' occurrence
+            b = b[: first + len('/developer/v1')]
+        self.base_url = b
         self.token_url = token_url
         self.client_id = client_id
         self.client_secret = client_secret
@@ -247,12 +253,15 @@ class RampClient:
         def _normalize_failed(f):
             return {'id': f.get('id') or f.get('transaction_id') or f.get('transactionId'), 'error': f.get('error') or {'message': f.get('message') or 'Unknown error'}}
 
+        # Build payload but omit empty arrays to avoid server-side schema quirks
         payload = {
             'idempotency_key': idempotency_key or str(uuid.uuid4()),
             'sync_type': sync_type,
-            'successful_syncs': [_normalize_success(s) for s in successful_syncs],
-            'failed_syncs': [_normalize_failed(f) for f in failed_syncs]
         }
+        if successful_syncs:
+            payload['successful_syncs'] = [_normalize_success(s) for s in successful_syncs]
+        if failed_syncs:
+            payload['failed_syncs'] = [_normalize_failed(f) for f in failed_syncs]
 
         # Pretty preview for dry-run
         try:
