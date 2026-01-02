@@ -6,6 +6,16 @@ from typing import Dict, List, Optional
 from urllib.parse import urljoin
 
 class RampClient:
+    def _build_endpoint(self, path: str) -> str:
+        """
+        Helper to construct full API endpoint, handling '/developer/v1' duplication logic.
+        """
+        base = self.base_url.rstrip('/')
+        if 'developer/v1' in base:
+            endpoint = urljoin(base + '/', path.lstrip('/'))
+        else:
+            endpoint = urljoin(base + '/', f'developer/v1/{path.lstrip('/')}')
+        return endpoint
     def __init__(self, base_url: str, token_url: str, client_id: str, client_secret: str, enable_sync: bool = False):
         # Normalize base_url to avoid duplicated segments like '/developer/v1/developer/v1'
         b = base_url.rstrip('/')
@@ -127,7 +137,7 @@ class RampClient:
         Returns the vendor JSON or None on error.
         """
         try:
-            url = urljoin(self.base_url + '/', f"vendors/{vendor_id}")
+            url = self._build_endpoint(f"vendors/{vendor_id}")
             resp = self.session.get(url)
             if resp.status_code == 200:
                 return resp.json()
@@ -149,7 +159,7 @@ class RampClient:
         Non-200 responses will be logged and result in an empty list.
         """
         try:
-            url = urljoin(self.base_url + '/', "vendors/")
+            url = self._build_endpoint("vendors/")
             params = {"limit": page_size}
             results: List[Dict] = []
             next_cursor = None
@@ -242,11 +252,7 @@ class RampClient:
         (True, {'endpoint': endpoint, 'payload_preview': payload_preview}).
         When `dry_run` is False, the function will POST and return (ok, info).
         """
-        base = self.base_url.rstrip('/')
-        if 'developer/v1' in base:
-            endpoint = urljoin(base + '/', 'accounting/syncs')
-        else:
-            endpoint = urljoin(base + '/', 'developer/v1/accounting/syncs')
+        endpoint = self._build_endpoint('accounting/syncs')
 
         if successful_syncs is None:
             successful_syncs = []
@@ -364,11 +370,7 @@ class RampClient:
         if getattr(self, '_accounting_sync_enabled', None) is not None:
             return self._accounting_sync_enabled
 
-        base = self.base_url.rstrip('/')
-        if 'developer/v1' in base:
-            endpoint = urljoin(base + '/', 'accounting/syncs')
-        else:
-            endpoint = urljoin(base + '/', 'developer/v1/accounting/syncs')
+        endpoint = self._build_endpoint('accounting/syncs')
 
         # Use canonical syncs helper for capability checks. We perform a dry-run preview
         # to validate the payload shape Ramp expects without sending writes.
@@ -411,11 +413,7 @@ class RampClient:
         the operation was successful (or the dry-run was prepared), and `info`
         contains either the response or a diagnostic message.
         """
-        base = self.base_url.rstrip('/')
-        if 'developer/v1' in base:
-            endpoint = urljoin(base + '/', 'accounting/connection')
-        else:
-            endpoint = urljoin(base + '/', 'developer/v1/accounting/connection')
+        endpoint = self._build_endpoint('accounting/connection')
 
         # Prepare a small debug payload preview
         try:
@@ -454,11 +452,7 @@ class RampClient:
         Returns `(ok: bool, results: List[Dict])` where each result dict contains
         batch number, ok status, count, and server response (or preview info).
         """
-        base = self.base_url.rstrip('/')
-        if 'developer/v1' in base:
-            endpoint = urljoin(base + '/', 'accounting/accounts')
-        else:
-            endpoint = urljoin(base + '/', 'developer/v1/accounting/accounts')
+        endpoint = self._build_endpoint('accounting/accounts')
 
         results = []
         total = len(gl_accounts)
@@ -504,7 +498,7 @@ class RampClient:
         """Generic method for paginated API calls. Any extra keyword args will be
         added as query string parameters, allowing server-side filtering (e.g.
         has_no_sync_commits=True or sync_ready=True)."""
-        url = urljoin(self.base_url + '/', endpoint.lstrip('/'))
+        url = self._build_endpoint(endpoint)
         params = {}
         if status:
             params["status"] = status

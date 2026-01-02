@@ -227,8 +227,8 @@ def run_export(selected_types, start_date, end_date, cfg, env):
                     combined_df = df
                 else:
                     combined_df = pd.concat([combined_df, df], ignore_index=True)
-                # Collect processed transaction ids for sync marking
-                if processed_ids and data_type == 'transactions':
+                # Collect processed ids for sync marking (transactions, bills, reimbursements)
+                if processed_ids and data_type in ('transactions', 'bills', 'reimbursements'):
                     for tid in processed_ids:
                         exported_transaction_ids.add(str(tid))
             else:
@@ -377,7 +377,8 @@ def check_available_endpoints(client, cfg):
         'reimbursements': 'reimbursements:read',
         'cashbacks': 'cashbacks:read',
         'statements': 'statements:read',
-        'accounting': 'accounting:read'
+        'accounting': 'accounting:read',
+        'accounting_write': 'accounting:write'
     }
 
     available = {}
