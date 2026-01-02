@@ -40,8 +40,8 @@ def render_invoices_tab(cfg, env):
                 )
                 client.authenticate()
 
-                from_issued_date = inv_start.strftime('%Y-%m-%d')
-                to_issued_date = inv_end.strftime('%Y-%m-%d')
+                from_issued_date = inv_start.strftime('%Y-%m-%dT00:00:00Z')
+                to_issued_date = inv_end.strftime('%Y-%m-%dT23:59:59Z')
 
                 # Ask server to only return bills that are ready to sync
                 bills = client.get_bills(status='PAID', from_issued_date=from_issued_date, to_issued_date=to_issued_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
@@ -131,8 +131,8 @@ def render_invoices_tab(cfg, env):
                 )
                 client.authenticate()
 
-                from_issued_date = inv_start.strftime('%Y-%m-%d')
-                to_issued_date = inv_end.strftime('%Y-%m-%d')
+                from_issued_date = inv_start.strftime('%Y-%m-%dT00:00:00Z')
+                to_issued_date = inv_end.strftime('%Y-%m-%dT23:59:59Z')
 
                 # Ask server to only return bills that are ready to sync
                 bills = client.get_bills(status='PAID', from_issued_date=from_issued_date, to_issued_date=to_issued_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
