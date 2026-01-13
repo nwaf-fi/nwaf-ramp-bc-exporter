@@ -349,7 +349,7 @@ def ramp_reimbursements_to_bc_rows(reimbursements: List[Dict[str, Any]], cfg: Di
                 'Debit Amount': round(amount, 2),
                 'Credit Amount': 0.0,
                 'Bal. Account Type': 'G/L Account',
-                'Bal. Account No.': str(bc_cfg.get('bank_account', '11005')),  # Bank account (reimbursement payment) as string
+                'Bal. Account No.': str(bc_cfg.get('bank_account', 'NT')),  # Bank account (reimbursement payment) as string
                 'Department Code': str(department_code or ''),
                 'Activity Code': str(activity_code or ''),
             })
@@ -407,7 +407,7 @@ def ramp_cashbacks_to_bc_rows(cashbacks: List[Dict[str, Any]], cfg: Dict[str, An
             'Debit Amount': round(amount, 2),
             'Credit Amount': 0.0,
             'Bal. Account Type': 'G/L Account',
-            'Bal. Account No.': str(bc_cfg.get('bank_account', '11005')),
+            'Bal. Account No.': str(bc_cfg.get('bank_account', 'NT')),
             'Department Code': '',
             'Activity Code': '',
         })
@@ -707,7 +707,42 @@ def ramp_bills_to_purchase_invoice_lines(bills: List[Dict[str, Any]], cfg: Dict[
         # Vendor invoice no: try common fields
         vendor_invoice_no = bill.get('vendor_invoice_number') or bill.get('invoice_number') or bill.get('document_number') or bill.get('id')
 
+        # For bank reconciliation: use paid_at (payment date) for posting date
+        # and bill_date (invoice date) for document date
+        paid_date = bill.get('paid_at') or bill.get('payment_date') or bill.get('settled_at')
         bill_date = bill.get('bill_date') or bill.get('created_at')
+        
+        # Format dates for Business Central (MM/DD/YYYY)
+        try:
+            if paid_date:
+                posting_date = datetime.fromisoformat(paid_date[:19]).strftime('%m/%d/%Y')
+            elif bill_date:
+                posting_date = datetime.fromisoformat(bill_date[:19]).strftime('%m/%d/%Y')
+            else:
+                posting_date = ''
+        except Exception:
+            try:
+                date_str = paid_date or bill_date
+                if date_str:
+                    posting_date = datetime.strptime(date_str[:10], '%Y-%m-%d').strftime('%m/%d/%Y')
+                else:
+                    posting_date = ''
+            except Exception:
+                posting_date = ''
+        
+        try:
+            if bill_date:
+                document_date = datetime.fromisoformat(bill_date[:19]).strftime('%m/%d/%Y')
+            else:
+                document_date = posting_date  # Fallback
+        except Exception:
+            try:
+                if bill_date:
+                    document_date = datetime.strptime(bill_date[:10], '%Y-%m-%d').strftime('%m/%d/%Y')
+                else:
+                    document_date = posting_date
+            except Exception:
+                document_date = posting_date
 
         line_items = bill.get('line_items', [])
         if not line_items:
@@ -726,6 +761,8 @@ def ramp_bills_to_purchase_invoice_lines(bills: List[Dict[str, Any]], cfg: Dict[
                 'Buy-from Vendor No.': str(buy_from_no),
                 'Buy-from Vendor Name': buy_from_name,
                 'Vendor Invoice No.': vendor_invoice_no,
+                'Posting Date': posting_date,
+                'Document Date': document_date,
                 'Location Code': location_code,
                 'Assigned User ID': str(bill.get('assigned_user_id', '')),
                 'Line Description': bill.get('memo', ''),
@@ -778,6 +815,8 @@ def ramp_bills_to_purchase_invoice_lines(bills: List[Dict[str, Any]], cfg: Dict[
                 'Buy-from Vendor No.': str(buy_from_no),
                 'Buy-from Vendor Name': buy_from_name,
                 'Vendor Invoice No.': vendor_invoice_no,
+                'Posting Date': posting_date,
+                'Document Date': document_date,
                 'Location Code': location_code,
                 'Assigned User ID': str(bill.get('assigned_user_id', '')),
                 'Line Description': li.get('memo') or li.get('description') or bill.get('memo', ''),
@@ -790,7 +829,7 @@ def ramp_bills_to_purchase_invoice_lines(bills: List[Dict[str, Any]], cfg: Dict[
 
     df = pd.DataFrame(rows)
     # Ensure columns order similar to example + extras
-    cols = ['No.', 'Buy-from Vendor No.', 'Buy-from Vendor Name', 'Vendor Invoice No.', 'Location Code', 'Assigned User ID', 'Line Description', 'Account No.', 'Department', 'Activity', 'Amount', 'VAT Code']
+    cols = ['No.', 'Buy-from Vendor No.', 'Buy-from Vendor Name', 'Vendor Invoice No.', 'Posting Date', 'Document Date', 'Location Code', 'Assigned User ID', 'Line Description', 'Account No.', 'Department', 'Activity', 'Amount', 'VAT Code']
     return df[cols]
 
 
@@ -822,7 +861,8 @@ def ramp_bills_to_general_journal(bills: List[Dict[str, Any]], cfg: Dict[str, An
         payable_prefix_map = {str(k): str(v) for k, v in payable_prefix_map.items()}
     except Exception:
         payable_prefix_map = {}
-    bank_account = str(bc_cfg.get('bank_account', '11005'))
+    bank_account = str(bc_cfg.get('bank_account', 'NT'))
+    bank_account_name = str(bc_cfg.get('bank_account_name', 'Northern Trust DDA'))
 
     rows = []
     # Track payable accounts encountered per-bill and debit GLs so balancing line
@@ -833,19 +873,47 @@ def ramp_bills_to_general_journal(bills: List[Dict[str, Any]], cfg: Dict[str, An
         # reset encountered payables and debit GLs for this bill
         encountered_payables = []
         encountered_debit_gls = []
+        
+        # For bank reconciliation: use paid_at (payment date) for posting date
+        # and bill_date (invoice date) for document date
+        paid_date = bill.get('paid_at') or bill.get('payment_date') or bill.get('settled_at')
         bill_date = bill.get('bill_date') or bill.get('created_at')
+        
+        # Posting date = payment date (for bank reconciliation)
         # Business Central expects MM/DD/YYYY in the provided sample
         try:
-            if bill_date:
-                # Accept ISO or full datetime strings
+            if paid_date:
+                posting_date = datetime.fromisoformat(paid_date[:19]).strftime('%m/%d/%Y')
+            elif bill_date:
+                # Fallback to bill_date if no payment date
                 posting_date = datetime.fromisoformat(bill_date[:19]).strftime('%m/%d/%Y')
             else:
                 posting_date = datetime.now().strftime('%m/%d/%Y')
         except Exception:
             try:
-                posting_date = datetime.strptime(bill_date[:10], '%Y-%m-%d').strftime('%m/%d/%Y')
+                date_str = paid_date or bill_date
+                if date_str:
+                    posting_date = datetime.strptime(date_str[:10], '%Y-%m-%d').strftime('%m/%d/%Y')
+                else:
+                    posting_date = datetime.now().strftime('%m/%d/%Y')
             except Exception:
                 posting_date = datetime.now().strftime('%m/%d/%Y')
+        
+        # Document/Invoice date = bill_date (original invoice date)
+        try:
+            if bill_date:
+                document_date = datetime.fromisoformat(bill_date[:19]).strftime('%m/%d/%Y')
+            else:
+                document_date = posting_date  # Fallback to posting date
+        except Exception:
+            try:
+                if bill_date:
+                    document_date = datetime.strptime(bill_date[:10], '%Y-%m-%d').strftime('%m/%d/%Y')
+                else:
+                    document_date = posting_date
+            except Exception:
+                document_date = posting_date
+        
         vendor_invoice_no = bill.get('vendor_invoice_number') or bill.get('invoice_number') or bill.get('document_number') or bill.get('id')
         description = bill.get('memo') or f"Bill {vendor_invoice_no}"
 
@@ -911,6 +979,7 @@ def ramp_bills_to_general_journal(bills: List[Dict[str, Any]], cfg: Dict[str, An
                     'Document No.': vendor_invoice_no,
                     'Approval Status': '',
                     'Posting Date': posting_date,
+                    'Document Date': document_date,
                     'Description': li.get('memo') or description,
                     'Account Type': 'G/L Account',
                     'Account No.': str(gl_account),
@@ -932,6 +1001,7 @@ def ramp_bills_to_general_journal(bills: List[Dict[str, Any]], cfg: Dict[str, An
                     'Document No.': vendor_invoice_no,
                     'Approval Status': '',
                     'Posting Date': posting_date,
+                    'Document Date': document_date,
                     'Description': li.get('memo') or description,
                     'Account Type': 'G/L Account',
                     'Account No.': str(gl_account or fallback_account),
@@ -967,6 +1037,7 @@ def ramp_bills_to_general_journal(bills: List[Dict[str, Any]], cfg: Dict[str, An
                     'Document No.': vendor_invoice_no,
                     'Approval Status': '',
                     'Posting Date': posting_date,
+                    'Document Date': document_date,
                     'Description': f"Invoice {vendor_invoice_no}",
                     'Account Type': 'G/L Account',
                     'Account No.': str(payable_for_balance),
@@ -984,6 +1055,7 @@ def ramp_bills_to_general_journal(bills: List[Dict[str, Any]], cfg: Dict[str, An
                     'Document No.': vendor_invoice_no,
                     'Approval Status': '',
                     'Posting Date': posting_date,
+                    'Document Date': document_date,
                     'Description': f"Invoice {vendor_invoice_no}",
                     'Account Type': 'G/L Account',
                     'Account No.': str(payable_for_balance),
@@ -1023,7 +1095,7 @@ def ramp_bills_to_general_journal(bills: List[Dict[str, Any]], cfg: Dict[str, An
 
     # Ensure consistent ordering to match your CSV template
     cols = [
-        'Batch Name','Document No.','Approval Status','Posting Date','Description','Account Type','Account No.','Account Name',
+        'Batch Name','Document No.','Approval Status','Posting Date','Document Date','Description','Account Type','Account No.','Account Name',
         'Department Code','Activity Code','Debit Amount','Credit Amount',
         'Sustainability Account No.','Total Emission CO2','Total Emission CH4','Total Emission N2O',
         'IRS 1099 Reporting Period','IRS 1099 Form No.','IRS 1099 Form Box No.',

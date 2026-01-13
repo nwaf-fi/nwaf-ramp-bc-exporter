@@ -10,7 +10,8 @@ page_size = 200
 [business_central]
 # --- !!! YOU MUST UPDATE THESE ACCOUNTS !!! ---
 ramp_card_account = "26100" # Ramp Credit Card Liability G/L Account No. in BC
-bank_account = "11005" # Your Actual Bank G/L Account No. in BC for payments
+bank_account = "NT" # Your Actual Bank G/L Account No. in BC for payments
+bank_account_name = "Northern Trust DDA" # Bank account name for journal entries
 vendor_payable_account = "26000" # Vendor payable suspense account
 employee_receivable_account = "13000" # Employee receivable account
 other_income_account = "40000" # Other income account for cashbacks
