@@ -44,15 +44,16 @@ def render_invoices_tab(cfg, env):
                 from_paid_date = inv_start.strftime('%Y-%m-%dT00:00:00Z')
                 to_paid_date = inv_end.strftime('%Y-%m-%dT23:59:59Z')
 
-                # Fetch both PAID and SCHEDULED bills since Ramp has already debited the bank
+                # Fetch both OPEN and PAID bills for bank reconciliation
+                # OPEN bills have scheduled payment dates, PAID bills have actual payment dates
+                bills_open = client.get_bills(status='OPEN', from_paid_date=from_paid_date, to_paid_date=to_paid_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
                 bills_paid = client.get_bills(status='PAID', from_paid_date=from_paid_date, to_paid_date=to_paid_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
-                bills_scheduled = client.get_bills(status='SCHEDULED', from_paid_date=from_paid_date, to_paid_date=to_paid_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
                 
                 # Merge the two lists
-                bills = (bills_paid or []) + (bills_scheduled or [])
+                bills = (bills_open or []) + (bills_paid or [])
                 total_bills = len(bills) if isinstance(bills, list) else 0
                 if not bills:
-                    st.info('No paid or scheduled bills found for the specified period.')
+                    st.info('No open or paid bills found for the specified period.')
                 else:
                     st.success(f"Retrieved {total_bills} bills (preview)")
 
@@ -140,15 +141,16 @@ def render_invoices_tab(cfg, env):
                 from_paid_date = inv_start.strftime('%Y-%m-%dT00:00:00Z')
                 to_paid_date = inv_end.strftime('%Y-%m-%dT23:59:59Z')
 
-                # Fetch both PAID and SCHEDULED bills since Ramp has already debited the bank
+                # Fetch both OPEN and PAID bills for bank reconciliation
+                # OPEN bills have scheduled payment dates, PAID bills have actual payment dates
+                bills_open = client.get_bills(status='OPEN', from_paid_date=from_paid_date, to_paid_date=to_paid_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
                 bills_paid = client.get_bills(status='PAID', from_paid_date=from_paid_date, to_paid_date=to_paid_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
-                bills_scheduled = client.get_bills(status='SCHEDULED', from_paid_date=from_paid_date, to_paid_date=to_paid_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
                 
                 # Merge the two lists
-                bills = (bills_paid or []) + (bills_scheduled or [])
+                bills = (bills_open or []) + (bills_paid or [])
                 total_bills = len(bills) if isinstance(bills, list) else 0
                 if not bills:
-                    st.info('No paid or scheduled bills found for the specified period.')
+                    st.info('No open or paid bills found for the specified period.')
                     st.session_state.pop('inv_bills', None)
                     st.stop()
                 
