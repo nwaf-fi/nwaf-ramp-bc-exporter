@@ -1043,45 +1043,76 @@ def ramp_bills_to_general_journal(bills: List[Dict[str, Any]], cfg: Dict[str, An
                 })
                 total_debits += amt
 
-        # For PAID bills: Add a balancing credit to bank account (NT) instead of A/P
-        # since the payment has already been made
+        # Two-step journal entries for paid bills:
+        # Entry 1: Record the invoice (Expense → A/P)
+        # Entry 2: Record the payment (A/P → Bank)
+        
+        # Determine which payable account to use for this bill
+        payable_for_balance = vendor_payable
+        for debit_gl in encountered_debit_gls:
+            mapped = gl_to_payable_map.get(str(debit_gl))
+            if mapped:
+                payable_for_balance = str(mapped)
+                break
+        else:
+            # fallback: prefer any non-default payable encountered
+            for p in encountered_payables:
+                if p and p != vendor_payable:
+                    payable_for_balance = p
+                    break
+        
+        # Calculate the total amount for balancing entries
         imbalance = round(total_debits - total_credits, 2)
         if abs(imbalance) > 0.0001:
-            if imbalance > 0:
-                # Debits exceed credits -> add a credit to bank for the difference
-                rows.append({
-                    'Batch Name': batch_name,
-                    'Document No.': vendor_invoice_no,
-                    'Approval Status': '',
-                    'Posting Date': posting_date,
-                    'Document Date': document_date,
-                    'Description': f"Payment for Invoice {vendor_invoice_no}",
-                    'Account Type': 'G/L Account',
-                    'Account No.': str(bank_account),
-                    'Account Name': bank_account_name,
-                    # Set canonical dimension defaults for bank/payment lines
-                    'Department Code': '000',
-                    'Activity Code': '00',
-                    'Debit Amount': 0.0,
-                    'Credit Amount': round(imbalance, 2),
-                })
-            else:
-                # Credits exceed debits -> add a debit to bank for the difference
-                rows.append({
-                    'Batch Name': batch_name,
-                    'Document No.': vendor_invoice_no,
-                    'Approval Status': '',
-                    'Posting Date': posting_date,
-                    'Document Date': document_date,
-                    'Description': f"Payment for Invoice {vendor_invoice_no}",
-                    'Account Type': 'G/L Account',
-                    'Account No.': str(bank_account),
-                    'Account Name': bank_account_name,
-                    'Department Code': '000',
-                    'Activity Code': '00',
-                    'Debit Amount': round(-imbalance, 2),
-                    'Credit Amount': 0.0,
-                })
+            # Entry 1: Invoice - Credit A/P to balance the expense debits
+            rows.append({
+                'Batch Name': batch_name,
+                'Document No.': vendor_invoice_no,
+                'Approval Status': '',
+                'Posting Date': posting_date,
+                'Document Date': document_date,
+                'Description': f"Invoice {vendor_invoice_no}",
+                'Account Type': 'G/L Account',
+                'Account No.': str(payable_for_balance),
+                'Account Name': '',
+                'Department Code': '000',
+                'Activity Code': '00',
+                'Debit Amount': 0.0,
+                'Credit Amount': round(imbalance, 2),
+            })
+            
+            # Entry 2: Payment - Debit A/P and Credit Bank
+            rows.append({
+                'Batch Name': batch_name,
+                'Document No.': vendor_invoice_no,
+                'Approval Status': '',
+                'Posting Date': posting_date,
+                'Document Date': document_date,
+                'Description': f"Payment for Invoice {vendor_invoice_no}",
+                'Account Type': 'G/L Account',
+                'Account No.': str(payable_for_balance),
+                'Account Name': '',
+                'Department Code': '000',
+                'Activity Code': '00',
+                'Debit Amount': round(imbalance, 2),
+                'Credit Amount': 0.0,
+            })
+            
+            rows.append({
+                'Batch Name': batch_name,
+                'Document No.': vendor_invoice_no,
+                'Approval Status': '',
+                'Posting Date': posting_date,
+                'Document Date': document_date,
+                'Description': f"Payment for Invoice {vendor_invoice_no}",
+                'Account Type': 'G/L Account',
+                'Account No.': str(bank_account),
+                'Account Name': bank_account_name,
+                'Department Code': '000',
+                'Activity Code': '00',
+                'Debit Amount': 0.0,
+                'Credit Amount': round(imbalance, 2),
+            })
 
     # Build DataFrame from accumulated rows
     df = pd.DataFrame(rows)
