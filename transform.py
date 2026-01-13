@@ -10,7 +10,7 @@ from typing import Iterable
 # Define the standard BC General Journal column order
 BC_COLUMN_ORDER = [
     'Journal Template Name', 'Journal Batch Name', 'Line No.', 'Posting Date', 
-    'Document Type', 'Document No.', 'Account Type', 'Account No.', 
+    'Document Date', 'Document Type', 'Document No.', 'Account Type', 'Account No.', 
     'Description', 'Debit Amount', 'Credit Amount', 'Bal. Account Type', 
     'Bal. Account No.', 'Department Code', 'Activity Code'
 ]
@@ -211,9 +211,38 @@ def ramp_bills_to_bc_rows(bills: List[Dict[str, Any]], cfg: Dict[str, Any]) -> p
         else:
             # Fallback if amount is already a number
             amount = float(amount_obj) if amount_obj else 0.0
-            
-        bill_date = bill.get('bill_date', bill.get('created_at', ''))
-        posting_date = bill_date[:10] if bill_date else datetime.now().strftime('%Y-%m-%d')
+        
+        # For bank reconciliation: use paid_at (payment date) for posting date
+        # and bill_date (invoice date) for document date
+        paid_date = bill.get('paid_at') or bill.get('payment_date') or bill.get('settled_at')
+        bill_date = bill.get('bill_date') or bill.get('created_at')
+        
+        # Posting date = payment date (for bank reconciliation)
+        try:
+            if paid_date:
+                posting_date = datetime.fromisoformat(paid_date[:19]).strftime('%Y-%m-%d')
+            elif bill_date:
+                posting_date = bill_date[:10] if bill_date else datetime.now().strftime('%Y-%m-%d')
+            else:
+                posting_date = datetime.now().strftime('%Y-%m-%d')
+        except Exception:
+            try:
+                date_str = paid_date or bill_date
+                posting_date = date_str[:10] if date_str else datetime.now().strftime('%Y-%m-%d')
+            except Exception:
+                posting_date = datetime.now().strftime('%Y-%m-%d')
+        
+        # Document/Invoice date = bill_date (original invoice date)
+        try:
+            if bill_date:
+                document_date = datetime.fromisoformat(bill_date[:19]).strftime('%Y-%m-%d')
+            else:
+                document_date = posting_date
+        except Exception:
+            try:
+                document_date = bill_date[:10] if bill_date else posting_date
+            except Exception:
+                document_date = posting_date
         
         doc_no = f"BILL-{bill.get('id', index)}"
         
@@ -253,6 +282,7 @@ def ramp_bills_to_bc_rows(bills: List[Dict[str, Any]], cfg: Dict[str, Any]) -> p
             'Journal Batch Name': bc_cfg.get('batch_name', 'RAMP_BILLS'),
             'Line No.': line_no_base,
             'Posting Date': posting_date,
+            'Document Date': document_date,
             'Document Type': 'Invoice',  # Bills are invoices from vendors
             'Document No.': doc_no,
             'Account Type': 'G/L Account',
