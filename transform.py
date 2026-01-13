@@ -908,47 +908,48 @@ def ramp_bills_to_general_journal(bills: List[Dict[str, Any]], cfg: Dict[str, An
         encountered_payables = []
         encountered_debit_gls = []
         
-        # For bank reconciliation: use payment date for posting date
-        # and bill_date (invoice date) for document date
+        # Date extraction:
+        # - bill_date: invoice date (for Expense→A/P entry)
+        # - paid_date: scheduled payment date or paid date (for A/P→Bank entry)
         # Payment date is nested in payment.payment_date for scheduled payments
         payment_info = bill.get('payment') or {}
         paid_date = bill.get('paid_at') or payment_info.get('payment_date') or bill.get('settled_at')
         bill_date = bill.get('bill_date') or bill.get('issued_at') or bill.get('created_at')
         
-        # Posting date = payment date (for bank reconciliation)
-        # Business Central expects MM/DD/YYYY in the provided sample
+        # Invoice entry: posting date = document date = invoice date
+        # Business Central expects MM/DD/YYYY format
+        try:
+            if bill_date:
+                invoice_posting_date = datetime.fromisoformat(bill_date[:19]).strftime('%m/%d/%Y')
+            else:
+                invoice_posting_date = datetime.now().strftime('%m/%d/%Y')
+        except Exception:
+            try:
+                if bill_date:
+                    invoice_posting_date = datetime.strptime(bill_date[:10], '%Y-%m-%d').strftime('%m/%d/%Y')
+                else:
+                    invoice_posting_date = datetime.now().strftime('%m/%d/%Y')
+            except Exception:
+                invoice_posting_date = datetime.now().strftime('%m/%d/%Y')
+        
+        # Payment entry: posting date = scheduled/paid date
         try:
             if paid_date:
-                posting_date = datetime.fromisoformat(paid_date[:19]).strftime('%m/%d/%Y')
+                payment_posting_date = datetime.fromisoformat(paid_date[:19]).strftime('%m/%d/%Y')
             elif bill_date:
                 # Fallback to bill_date if no payment date
-                posting_date = datetime.fromisoformat(bill_date[:19]).strftime('%m/%d/%Y')
+                payment_posting_date = invoice_posting_date
             else:
-                posting_date = datetime.now().strftime('%m/%d/%Y')
+                payment_posting_date = datetime.now().strftime('%m/%d/%Y')
         except Exception:
             try:
                 date_str = paid_date or bill_date
                 if date_str:
-                    posting_date = datetime.strptime(date_str[:10], '%Y-%m-%d').strftime('%m/%d/%Y')
+                    payment_posting_date = datetime.strptime(date_str[:10], '%Y-%m-%d').strftime('%m/%d/%Y')
                 else:
-                    posting_date = datetime.now().strftime('%m/%d/%Y')
+                    payment_posting_date = datetime.now().strftime('%m/%d/%Y')
             except Exception:
-                posting_date = datetime.now().strftime('%m/%d/%Y')
-        
-        # Document/Invoice date = bill_date (original invoice date)
-        try:
-            if bill_date:
-                document_date = datetime.fromisoformat(bill_date[:19]).strftime('%m/%d/%Y')
-            else:
-                document_date = posting_date  # Fallback to posting date
-        except Exception:
-            try:
-                if bill_date:
-                    document_date = datetime.strptime(bill_date[:10], '%Y-%m-%d').strftime('%m/%d/%Y')
-                else:
-                    document_date = posting_date
-            except Exception:
-                document_date = posting_date
+                payment_posting_date = datetime.now().strftime('%m/%d/%Y')
         
         vendor_invoice_no = bill.get('vendor_invoice_number') or bill.get('invoice_number') or bill.get('document_number') or bill.get('id')
         description = bill.get('memo') or f"Bill {vendor_invoice_no}"
@@ -1014,8 +1015,8 @@ def ramp_bills_to_general_journal(bills: List[Dict[str, Any]], cfg: Dict[str, An
                     'Batch Name': batch_name,
                     'Document No.': vendor_invoice_no,
                     'Approval Status': '',
-                    'Posting Date': posting_date,
-                    'Document Date': document_date,
+                    'Posting Date': invoice_posting_date,
+                    'Document Date': invoice_posting_date,
                     'Description': li.get('memo') or description,
                     'Account Type': 'G/L Account',
                     'Account No.': str(gl_account),
@@ -1036,8 +1037,8 @@ def ramp_bills_to_general_journal(bills: List[Dict[str, Any]], cfg: Dict[str, An
                     'Batch Name': batch_name,
                     'Document No.': vendor_invoice_no,
                     'Approval Status': '',
-                    'Posting Date': posting_date,
-                    'Document Date': document_date,
+                    'Posting Date': invoice_posting_date,
+                    'Document Date': invoice_posting_date,
                     'Description': li.get('memo') or description,
                     'Account Type': 'G/L Account',
                     'Account No.': str(gl_account or fallback_account),
@@ -1070,13 +1071,13 @@ def ramp_bills_to_general_journal(bills: List[Dict[str, Any]], cfg: Dict[str, An
         # Calculate the total amount for balancing entries
         imbalance = round(total_debits - total_credits, 2)
         if abs(imbalance) > 0.0001:
-            # Entry 1: Invoice - Credit A/P to balance the expense debits
+            # Entry 1: Invoice - Credit A/P to balance the expense debits (use invoice date)
             rows.append({
                 'Batch Name': batch_name,
                 'Document No.': vendor_invoice_no,
                 'Approval Status': '',
-                'Posting Date': posting_date,
-                'Document Date': document_date,
+                'Posting Date': invoice_posting_date,
+                'Document Date': invoice_posting_date,
                 'Description': f"Invoice {vendor_invoice_no}",
                 'Account Type': 'G/L Account',
                 'Account No.': str(payable_for_balance),
@@ -1087,13 +1088,13 @@ def ramp_bills_to_general_journal(bills: List[Dict[str, Any]], cfg: Dict[str, An
                 'Credit Amount': round(imbalance, 2),
             })
             
-            # Entry 2: Payment - Debit A/P and Credit Bank
+            # Entry 2: Payment - Debit A/P and Credit Bank (use scheduled/paid date)
             rows.append({
                 'Batch Name': batch_name,
                 'Document No.': vendor_invoice_no,
                 'Approval Status': '',
-                'Posting Date': posting_date,
-                'Document Date': document_date,
+                'Posting Date': payment_posting_date,
+                'Document Date': payment_posting_date,
                 'Description': f"Payment for Invoice {vendor_invoice_no}",
                 'Account Type': 'G/L Account',
                 'Account No.': str(payable_for_balance),
@@ -1108,8 +1109,8 @@ def ramp_bills_to_general_journal(bills: List[Dict[str, Any]], cfg: Dict[str, An
                 'Batch Name': batch_name,
                 'Document No.': vendor_invoice_no,
                 'Approval Status': '',
-                'Posting Date': posting_date,
-                'Document Date': document_date,
+                'Posting Date': payment_posting_date,
+                'Document Date': payment_posting_date,
                 'Description': f"Payment for Invoice {vendor_invoice_no}",
                 'Account Type': 'G/L Account',
                 'Account No.': str(bank_account),
