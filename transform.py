@@ -212,10 +212,12 @@ def ramp_bills_to_bc_rows(bills: List[Dict[str, Any]], cfg: Dict[str, Any]) -> p
             # Fallback if amount is already a number
             amount = float(amount_obj) if amount_obj else 0.0
         
-        # For bank reconciliation: use paid_at (payment date) for posting date
+        # For bank reconciliation: use payment date for posting date
         # and bill_date (invoice date) for document date
-        paid_date = bill.get('paid_at') or bill.get('payment_date') or bill.get('settled_at')
-        bill_date = bill.get('bill_date') or bill.get('created_at')
+        # Payment date is nested in payment.payment_date for scheduled payments
+        payment_info = bill.get('payment', {})
+        paid_date = bill.get('paid_at') or payment_info.get('payment_date') or bill.get('settled_at')
+        bill_date = bill.get('bill_date') or bill.get('issued_at') or bill.get('created_at')
         
         # Posting date = payment date (for bank reconciliation)
         try:
@@ -737,10 +739,12 @@ def ramp_bills_to_purchase_invoice_lines(bills: List[Dict[str, Any]], cfg: Dict[
         # Vendor invoice no: try common fields
         vendor_invoice_no = bill.get('vendor_invoice_number') or bill.get('invoice_number') or bill.get('document_number') or bill.get('id')
 
-        # For bank reconciliation: use paid_at (payment date) for posting date
+        # For bank reconciliation: use payment date for posting date
         # and bill_date (invoice date) for document date
-        paid_date = bill.get('paid_at') or bill.get('payment_date') or bill.get('settled_at')
-        bill_date = bill.get('bill_date') or bill.get('created_at')
+        # Payment date is nested in payment.payment_date for scheduled payments
+        payment_info = bill.get('payment', {})
+        paid_date = bill.get('paid_at') or payment_info.get('payment_date') or bill.get('settled_at')
+        bill_date = bill.get('bill_date') or bill.get('issued_at') or bill.get('created_at')
         
         # Format dates for Business Central (MM/DD/YYYY)
         try:
@@ -904,10 +908,12 @@ def ramp_bills_to_general_journal(bills: List[Dict[str, Any]], cfg: Dict[str, An
         encountered_payables = []
         encountered_debit_gls = []
         
-        # For bank reconciliation: use paid_at (payment date) for posting date
+        # For bank reconciliation: use payment date for posting date
         # and bill_date (invoice date) for document date
-        paid_date = bill.get('paid_at') or bill.get('payment_date') or bill.get('settled_at')
-        bill_date = bill.get('bill_date') or bill.get('created_at')
+        # Payment date is nested in payment.payment_date for scheduled payments
+        payment_info = bill.get('payment', {})
+        paid_date = bill.get('paid_at') or payment_info.get('payment_date') or bill.get('settled_at')
+        bill_date = bill.get('bill_date') or bill.get('issued_at') or bill.get('created_at')
         
         # Posting date = payment date (for bank reconciliation)
         # Business Central expects MM/DD/YYYY in the provided sample
