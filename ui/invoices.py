@@ -40,12 +40,13 @@ def render_invoices_tab(cfg, env):
                 )
                 client.authenticate()
 
-                from_issued_date = inv_start.strftime('%Y-%m-%dT00:00:00Z')
-                to_issued_date = inv_end.strftime('%Y-%m-%dT23:59:59Z')
+                # Use payment date for filtering to align with bank reconciliation
+                from_paid_date = inv_start.strftime('%Y-%m-%dT00:00:00Z')
+                to_paid_date = inv_end.strftime('%Y-%m-%dT23:59:59Z')
 
                 # Fetch both PAID and SCHEDULED bills since Ramp has already debited the bank
-                bills_paid = client.get_bills(status='PAID', from_issued_date=from_issued_date, to_issued_date=to_issued_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
-                bills_scheduled = client.get_bills(status='SCHEDULED', from_issued_date=from_issued_date, to_issued_date=to_issued_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
+                bills_paid = client.get_bills(status='PAID', from_paid_date=from_paid_date, to_paid_date=to_paid_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
+                bills_scheduled = client.get_bills(status='SCHEDULED', from_paid_date=from_paid_date, to_paid_date=to_paid_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
                 
                 # Merge the two lists
                 bills = (bills_paid or []) + (bills_scheduled or [])
@@ -135,12 +136,13 @@ def render_invoices_tab(cfg, env):
                 )
                 client.authenticate()
 
-                from_issued_date = inv_start.strftime('%Y-%m-%dT00:00:00Z')
-                to_issued_date = inv_end.strftime('%Y-%m-%dT23:59:59Z')
+                # Use payment date for filtering to align with bank reconciliation
+                from_paid_date = inv_start.strftime('%Y-%m-%dT00:00:00Z')
+                to_paid_date = inv_end.strftime('%Y-%m-%dT23:59:59Z')
 
                 # Fetch both PAID and SCHEDULED bills since Ramp has already debited the bank
-                bills_paid = client.get_bills(status='PAID', from_issued_date=from_issued_date, to_issued_date=to_issued_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
-                bills_scheduled = client.get_bills(status='SCHEDULED', from_issued_date=from_issued_date, to_issued_date=to_issued_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
+                bills_paid = client.get_bills(status='PAID', from_paid_date=from_paid_date, to_paid_date=to_paid_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
+                bills_scheduled = client.get_bills(status='SCHEDULED', from_paid_date=from_paid_date, to_paid_date=to_paid_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
                 
                 # Merge the two lists
                 bills = (bills_paid or []) + (bills_scheduled or [])
