@@ -46,8 +46,9 @@ def render_invoices_tab(cfg, env):
 
                 # Fetch both OPEN and PAID bills based on invoice date
                 # OPEN bills have scheduled payment dates, PAID bills have actual payment dates
-                bills_open = client.get_bills(status='OPEN', from_issued_date=from_issued_date, to_issued_date=to_issued_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
-                bills_paid = client.get_bills(status='PAID', from_issued_date=from_issued_date, to_issued_date=to_issued_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
+                # Pass date filters through extra_params (kwargs)
+                bills_open = client.get_bills(status='OPEN', page_size=cfg['ramp'].get('page_size', 200), sync_ready=True, from_issued_date=from_issued_date, to_issued_date=to_issued_date)
+                bills_paid = client.get_bills(status='PAID', page_size=cfg['ramp'].get('page_size', 200), sync_ready=True, from_issued_date=from_issued_date, to_issued_date=to_issued_date)
                 
                 # Merge the two lists
                 bills = (bills_open or []) + (bills_paid or [])
@@ -143,8 +144,9 @@ def render_invoices_tab(cfg, env):
 
                 # Fetch both OPEN and PAID bills based on invoice date
                 # OPEN bills have scheduled payment dates, PAID bills have actual payment dates
-                bills_open = client.get_bills(status='OPEN', from_issued_date=from_issued_date, to_issued_date=to_issued_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
-                bills_paid = client.get_bills(status='PAID', from_issued_date=from_issued_date, to_issued_date=to_issued_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
+                # Pass date filters through extra_params (kwargs)
+                bills_open = client.get_bills(status='OPEN', page_size=cfg['ramp'].get('page_size', 200), sync_ready=True, from_issued_date=from_issued_date, to_issued_date=to_issued_date)
+                bills_paid = client.get_bills(status='PAID', page_size=cfg['ramp'].get('page_size', 200), sync_ready=True, from_issued_date=from_issued_date, to_issued_date=to_issued_date)
                 
                 # Merge the two lists
                 bills = (bills_open or []) + (bills_paid or [])
