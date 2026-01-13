@@ -158,7 +158,7 @@ def render_invoices_tab(cfg, env):
                     st.session_state.pop('inv_bills', None)
                     st.stop()
                 
-                st.success(f"Retrieved {total_bills} bills (pre-filter)")
+                st.success(f"Retrieved {total_bills} bills from Ramp")
 
                 # Remove already-synced bills when possible
                 before = len(bills)
