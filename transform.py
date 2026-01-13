@@ -87,7 +87,7 @@ def ramp_to_bc_rows(transactions: List[Dict[str, Any]], cfg: Dict[str, Any]) -> 
         # 4. Create the journal line
         journal_lines.append({
             'Journal Template Name': bc_cfg.get('template_name', 'GENERAL'),
-            'Journal Batch Name': bc_cfg.get('batch_name', 'RAMP_IMPORT'),
+            'Journal Batch Name': bc_cfg.get('batch_name', 'ACCOUNTANT'),
             'Line No.': line_no_base,
             'Posting Date': posting_date,
             'Document Type': doc_type,
@@ -279,7 +279,7 @@ def ramp_bills_to_bc_rows(bills: List[Dict[str, Any]], cfg: Dict[str, Any]) -> p
         
         journal_lines.append({
             'Journal Template Name': bc_cfg.get('template_name', 'GENERAL'),
-            'Journal Batch Name': bc_cfg.get('batch_name', 'RAMP_BILLS'),
+            'Journal Batch Name': bc_cfg.get('batch_name', 'ACCOUNTANT'),
             'Line No.': line_no_base,
             'Posting Date': posting_date,
             'Document Date': document_date,
@@ -625,8 +625,8 @@ def ramp_credit_card_to_bc_rows(transactions: List[Dict[str, Any]], cfg: Dict[st
             description = memo or ''
 
         journal_lines.append({
-            'Journal Template Name': 'GENERAL',
-            'Journal Batch Name': 'RAMP_IMPORT',
+            'Journal Template Name': bc_cfg.get('template_name', 'GENERAL'),
+            'Journal Batch Name': bc_cfg.get('batch_name', 'ACCOUNTANT'),
             'Line No.': line_no_base,
             'Posting Date': posting_date_str,
             'Document Type': 'Payment',
