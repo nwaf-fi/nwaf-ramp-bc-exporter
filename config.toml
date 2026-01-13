@@ -16,7 +16,7 @@ vendor_payable_account = "26000" # Vendor payable suspense account
 employee_receivable_account = "13000" # Employee receivable account
 other_income_account = "40000" # Other income account for cashbacks
 template_name = "GENERAL"
-batch_name = "RAMP_IMPORT"
+batch_name = "ACCOUNTANT"
 
 # Optional vendor -> default expense account mapping. Keys should be the vendor lookup
 # value (e.g. external vendor id as populated into Buy-from Vendor No.).
