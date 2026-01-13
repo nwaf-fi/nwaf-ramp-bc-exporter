@@ -40,14 +40,14 @@ def render_invoices_tab(cfg, env):
                 )
                 client.authenticate()
 
-                # Use payment date for filtering to align with bank reconciliation
-                from_paid_date = inv_start.strftime('%Y-%m-%dT00:00:00Z')
-                to_paid_date = inv_end.strftime('%Y-%m-%dT23:59:59Z')
+                # Filter by invoice date (issued_at) to get bills within the period
+                from_issued_date = inv_start.strftime('%Y-%m-%dT00:00:00Z')
+                to_issued_date = inv_end.strftime('%Y-%m-%dT23:59:59Z')
 
-                # Fetch both OPEN and PAID bills for bank reconciliation
+                # Fetch both OPEN and PAID bills based on invoice date
                 # OPEN bills have scheduled payment dates, PAID bills have actual payment dates
-                bills_open = client.get_bills(status='OPEN', from_paid_date=from_paid_date, to_paid_date=to_paid_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
-                bills_paid = client.get_bills(status='PAID', from_paid_date=from_paid_date, to_paid_date=to_paid_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
+                bills_open = client.get_bills(status='OPEN', from_issued_date=from_issued_date, to_issued_date=to_issued_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
+                bills_paid = client.get_bills(status='PAID', from_issued_date=from_issued_date, to_issued_date=to_issued_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
                 
                 # Merge the two lists
                 bills = (bills_open or []) + (bills_paid or [])
@@ -137,14 +137,14 @@ def render_invoices_tab(cfg, env):
                 )
                 client.authenticate()
 
-                # Use payment date for filtering to align with bank reconciliation
-                from_paid_date = inv_start.strftime('%Y-%m-%dT00:00:00Z')
-                to_paid_date = inv_end.strftime('%Y-%m-%dT23:59:59Z')
+                # Filter by invoice date (issued_at) to get bills within the period
+                from_issued_date = inv_start.strftime('%Y-%m-%dT00:00:00Z')
+                to_issued_date = inv_end.strftime('%Y-%m-%dT23:59:59Z')
 
-                # Fetch both OPEN and PAID bills for bank reconciliation
+                # Fetch both OPEN and PAID bills based on invoice date
                 # OPEN bills have scheduled payment dates, PAID bills have actual payment dates
-                bills_open = client.get_bills(status='OPEN', from_paid_date=from_paid_date, to_paid_date=to_paid_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
-                bills_paid = client.get_bills(status='PAID', from_paid_date=from_paid_date, to_paid_date=to_paid_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
+                bills_open = client.get_bills(status='OPEN', from_issued_date=from_issued_date, to_issued_date=to_issued_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
+                bills_paid = client.get_bills(status='PAID', from_issued_date=from_issued_date, to_issued_date=to_issued_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
                 
                 # Merge the two lists
                 bills = (bills_open or []) + (bills_paid or [])

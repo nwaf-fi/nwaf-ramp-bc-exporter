@@ -631,6 +631,7 @@ def ramp_credit_card_to_bc_rows(transactions: List[Dict[str, Any]], cfg: Dict[st
             'Journal Batch Name': bc_cfg.get('batch_name', 'ACCOUNTANT'),
             'Line No.': line_no_base,
             'Posting Date': posting_date_str,
+            'Document Date': posting_date_str,
             'Document Type': 'Payment',
             'Document No.': doc_no,
             'Account Type': 'G/L Account',
