@@ -95,7 +95,9 @@ def render_invoices_tab(cfg, env):
 
                     pi_total = pi_df['Amount'].sum() if pi_df is not None and not pi_df.empty and 'Amount' in pi_df.columns else 0.0
 
-                    st.write(f"Bills count after filtering: **{len(bills_preview)}**  — Total amount: **${bill_total:,.2f}**")
+                    bill_count_filtered = len(pi_df['External Document No.'].unique()) if pi_df is not None and not pi_df.empty and 'External Document No.' in pi_df.columns else len(bills_preview)
+
+                    st.write(f"Bills count after filtering: **{bill_count_filtered}**  — Total amount: **${bill_total:,.2f}**")
                     st.write(f"Purchase Invoice lines total (preview): **${pi_total:,.2f}**")
 
                     st.subheader("Preview - Purchase Invoice (first 10 rows)")
@@ -208,7 +210,9 @@ def render_invoices_tab(cfg, env):
                 st.session_state['inv_gj_df'] = gj_df
                 st.session_state['inv_bill_total'] = bill_total
 
-                st.write(f"Bills count after filtering: **{len(bills)}**  — Total amount: **${bill_total:,.2f}**")
+                bill_count_filtered = len(pi_df['External Document No.'].unique()) if pi_df is not None and not pi_df.empty and 'External Document No.' in pi_df.columns else len(bills)
+
+                st.write(f"Bills count after filtering: **{bill_count_filtered}**  — Total amount: **${bill_total:,.2f}**")
                 st.write(f"Purchase Invoice lines total: **${pi_total:,.2f}**")
 
                 st.subheader("Purchase Invoice Preview (first 10 rows)")
