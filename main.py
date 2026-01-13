@@ -104,12 +104,20 @@ def fetch_data_for_type(client: RampClient, data_type: str, start_date: str, end
         )
         df = ramp_to_bc_rows(data, cfg)
     elif data_type == 'bills':
-        data = client.get_bills(
+        # Fetch both PAID and SCHEDULED bills since Ramp has already debited the bank
+        data_paid = client.get_bills(
             status='PAID',
             start_date=start_date,
             end_date=end_date,
             page_size=cfg['ramp'].get('page_size', 200)
         )
+        data_scheduled = client.get_bills(
+            status='SCHEDULED',
+            start_date=start_date,
+            end_date=end_date,
+            page_size=cfg['ramp'].get('page_size', 200)
+        )
+        data = (data_paid or []) + (data_scheduled or [])
         df = ramp_bills_to_bc_rows(data, cfg)
     elif data_type == 'reimbursements':
         data = client.get_reimbursements(

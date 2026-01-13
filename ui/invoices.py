@@ -43,11 +43,15 @@ def render_invoices_tab(cfg, env):
                 from_issued_date = inv_start.strftime('%Y-%m-%dT00:00:00Z')
                 to_issued_date = inv_end.strftime('%Y-%m-%dT23:59:59Z')
 
-                # Ask server to only return bills that are ready to sync
-                bills = client.get_bills(status='PAID', from_issued_date=from_issued_date, to_issued_date=to_issued_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
+                # Fetch both PAID and SCHEDULED bills since Ramp has already debited the bank
+                bills_paid = client.get_bills(status='PAID', from_issued_date=from_issued_date, to_issued_date=to_issued_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
+                bills_scheduled = client.get_bills(status='SCHEDULED', from_issued_date=from_issued_date, to_issued_date=to_issued_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
+                
+                # Merge the two lists
+                bills = (bills_paid or []) + (bills_scheduled or [])
                 total_bills = len(bills) if isinstance(bills, list) else 0
                 if not bills:
-                    st.info('No paid bills found for the specified period.')
+                    st.info('No paid or scheduled bills found for the specified period.')
                 else:
                     st.success(f"Retrieved {total_bills} bills (preview)")
 
@@ -134,11 +138,15 @@ def render_invoices_tab(cfg, env):
                 from_issued_date = inv_start.strftime('%Y-%m-%dT00:00:00Z')
                 to_issued_date = inv_end.strftime('%Y-%m-%dT23:59:59Z')
 
-                # Ask server to only return bills that are ready to sync
-                bills = client.get_bills(status='PAID', from_issued_date=from_issued_date, to_issued_date=to_issued_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
+                # Fetch both PAID and SCHEDULED bills since Ramp has already debited the bank
+                bills_paid = client.get_bills(status='PAID', from_issued_date=from_issued_date, to_issued_date=to_issued_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
+                bills_scheduled = client.get_bills(status='SCHEDULED', from_issued_date=from_issued_date, to_issued_date=to_issued_date, page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
+                
+                # Merge the two lists
+                bills = (bills_paid or []) + (bills_scheduled or [])
                 total_bills = len(bills) if isinstance(bills, list) else 0
                 if not bills:
-                    st.info('No paid bills found for the specified period.')
+                    st.info('No paid or scheduled bills found for the specified period.')
                     st.session_state.pop('inv_bills', None)
                     st.stop()
                 
