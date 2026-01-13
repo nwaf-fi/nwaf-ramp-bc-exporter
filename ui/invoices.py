@@ -41,8 +41,9 @@ def render_invoices_tab(cfg, env):
                 client.authenticate()
 
                 # Filter by invoice date (issued_at) to get bills within the period
-                from_issued_date = inv_start.strftime('%Y-%m-%dT00:00:00Z')
-                to_issued_date = inv_end.strftime('%Y-%m-%dT23:59:59Z')
+                # Use simple date format (YYYY-MM-DD) not datetime
+                from_issued_date = inv_start.strftime('%Y-%m-%d')
+                to_issued_date = inv_end.strftime('%Y-%m-%d')
 
                 # Fetch both OPEN and PAID bills based on invoice date
                 # OPEN bills have scheduled payment dates, PAID bills have actual payment dates
@@ -139,8 +140,9 @@ def render_invoices_tab(cfg, env):
                 client.authenticate()
 
                 # Filter by invoice date (issued_at) to get bills within the period
-                from_issued_date = inv_start.strftime('%Y-%m-%dT00:00:00Z')
-                to_issued_date = inv_end.strftime('%Y-%m-%dT23:59:59Z')
+                # Use simple date format (YYYY-MM-DD) not datetime
+                from_issued_date = inv_start.strftime('%Y-%m-%d')
+                to_issued_date = inv_end.strftime('%Y-%m-%d')
 
                 # Fetch both OPEN and PAID bills based on invoice date
                 # OPEN bills have scheduled payment dates, PAID bills have actual payment dates
