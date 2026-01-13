@@ -517,6 +517,10 @@ class RampClient:
                 else:
                     params[k] = v
 
+        # Debug: Print the actual parameters being sent
+        print(f"🔍 API Request: {endpoint}")
+        print(f"🔍 Parameters: {params}")
+
         results: List[Dict] = []
         next_cursor = None
         while True:
@@ -530,4 +534,6 @@ class RampClient:
             next_cursor = data.get("next") or data.get("next_cursor")
             if not next_cursor:
                 break
+        
+        print(f"✅ Retrieved {len(results)} items from {endpoint}")
         return results
