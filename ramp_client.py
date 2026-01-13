@@ -509,13 +509,8 @@ class RampClient:
         params["limit"] = page_size
 
         # Merge extra params into query string (useful for server-side sync filters)
+        # Keep keys as-is so endpoints like bills can receive from_issued_date/to_issued_date directly.
         if extra_params:
-            # Handle specific date filters for bills if they exist in extra_params
-            if 'from_issued_date' in extra_params:
-                params["start_date"] = extra_params.pop('from_issued_date')
-            if 'to_issued_date' in extra_params:
-                params["end_date"] = extra_params.pop('to_issued_date')
-            
             for k, v in extra_params.items():
                 # Convert booleans to lowercase strings which Ramp API expects
                 if isinstance(v, bool):
