@@ -82,18 +82,9 @@ def render_invoices_tab(cfg, env):
                     pi_df = ramp_bills_to_purchase_invoice_lines(bills_preview, cfg)
                     gj_df = ramp_bills_to_general_journal(bills_preview, cfg)
 
-                    bill_total = 0.0
-                    for b in bills_preview:
-                        amt = b.get('amount') or b.get('total') or {}
-                        if isinstance(amt, dict):
-                            bill_total += (amt.get('amount', 0) / amt.get('minor_unit_conversion_rate', 100))
-                        else:
-                            try:
-                                bill_total += float(amt)
-                            except Exception:
-                                pass
-
+                    # Calculate bill total and count from DataFrame to ensure consistency
                     pi_total = pi_df['Amount'].sum() if pi_df is not None and not pi_df.empty and 'Amount' in pi_df.columns else 0.0
+                    bill_total = pi_total  # Use same source for total amount
 
                     # Count unique Document No. values (BC purchase invoice header) when available; otherwise fall back to bill list length.
                     bill_count_filtered = len(pi_df['Document No.'].unique()) if pi_df is not None and not pi_df.empty and 'Document No.' in pi_df.columns else len(bills_preview)
@@ -191,19 +182,9 @@ def render_invoices_tab(cfg, env):
                 pi_df = ramp_bills_to_purchase_invoice_lines(bills, cfg)
                 gj_df = ramp_bills_to_general_journal(bills, cfg)
 
-                # Totals diagnostics
-                bill_total = 0.0
-                for b in bills:
-                    amt = b.get('amount') or b.get('total') or {}
-                    if isinstance(amt, dict):
-                        bill_total += (amt.get('amount', 0) / amt.get('minor_unit_conversion_rate', 100))
-                    else:
-                        try:
-                            bill_total += float(amt)
-                        except Exception:
-                            pass
-
+                # Calculate totals and count from DataFrame to ensure consistency
                 pi_total = pi_df['Amount'].sum() if pi_df is not None and not pi_df.empty and 'Amount' in pi_df.columns else 0.0
+                bill_total = pi_total  # Use same source for total amount
 
                 # Store results in session for subsequent actions
                 st.session_state['inv_bills'] = bills
