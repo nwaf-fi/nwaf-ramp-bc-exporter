@@ -739,44 +739,30 @@ def ramp_bills_to_purchase_invoice_lines(bills: List[Dict[str, Any]], cfg: Dict[
         # Vendor invoice no: try common fields
         vendor_invoice_no = bill.get('vendor_invoice_number') or bill.get('invoice_number') or bill.get('document_number') or bill.get('id')
 
-        # For bank reconciliation: use payment date for posting date
-        # and bill_date (invoice date) for document date
+        # Date extraction: for Purchase Invoice, use bill_date (invoice date) for both posting and document dates
         # Payment date is nested in payment.payment_date for scheduled payments
         payment_info = bill.get('payment') or {}
         paid_date = bill.get('paid_at') or payment_info.get('payment_date') or bill.get('settled_at')
         bill_date = bill.get('bill_date') or bill.get('issued_at') or bill.get('created_at')
         
+        # Purchase Invoice: posting date = document date = invoice date (bill_date)
         # Format dates for Business Central (MM/DD/YYYY)
         try:
-            if paid_date:
-                posting_date = datetime.fromisoformat(paid_date[:19]).strftime('%m/%d/%Y')
-            elif bill_date:
+            if bill_date:
                 posting_date = datetime.fromisoformat(bill_date[:19]).strftime('%m/%d/%Y')
             else:
                 posting_date = ''
         except Exception:
             try:
-                date_str = paid_date or bill_date
-                if date_str:
-                    posting_date = datetime.strptime(date_str[:10], '%Y-%m-%d').strftime('%m/%d/%Y')
+                if bill_date:
+                    posting_date = datetime.strptime(bill_date[:10], '%Y-%m-%d').strftime('%m/%d/%Y')
                 else:
                     posting_date = ''
             except Exception:
                 posting_date = ''
         
-        try:
-            if bill_date:
-                document_date = datetime.fromisoformat(bill_date[:19]).strftime('%m/%d/%Y')
-            else:
-                document_date = posting_date  # Fallback
-        except Exception:
-            try:
-                if bill_date:
-                    document_date = datetime.strptime(bill_date[:10], '%Y-%m-%d').strftime('%m/%d/%Y')
-                else:
-                    document_date = posting_date
-            except Exception:
-                document_date = posting_date
+        # Document date same as posting date for purchase invoices
+        document_date = posting_date
 
         line_items = bill.get('line_items', [])
         if not line_items:
