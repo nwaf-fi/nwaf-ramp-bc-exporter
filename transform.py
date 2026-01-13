@@ -215,7 +215,7 @@ def ramp_bills_to_bc_rows(bills: List[Dict[str, Any]], cfg: Dict[str, Any]) -> p
         # For bank reconciliation: use payment date for posting date
         # and bill_date (invoice date) for document date
         # Payment date is nested in payment.payment_date for scheduled payments
-        payment_info = bill.get('payment', {})
+        payment_info = bill.get('payment') or {}
         paid_date = bill.get('paid_at') or payment_info.get('payment_date') or bill.get('settled_at')
         bill_date = bill.get('bill_date') or bill.get('issued_at') or bill.get('created_at')
         
@@ -742,7 +742,7 @@ def ramp_bills_to_purchase_invoice_lines(bills: List[Dict[str, Any]], cfg: Dict[
         # For bank reconciliation: use payment date for posting date
         # and bill_date (invoice date) for document date
         # Payment date is nested in payment.payment_date for scheduled payments
-        payment_info = bill.get('payment', {})
+        payment_info = bill.get('payment') or {}
         paid_date = bill.get('paid_at') or payment_info.get('payment_date') or bill.get('settled_at')
         bill_date = bill.get('bill_date') or bill.get('issued_at') or bill.get('created_at')
         
@@ -911,7 +911,7 @@ def ramp_bills_to_general_journal(bills: List[Dict[str, Any]], cfg: Dict[str, An
         # For bank reconciliation: use payment date for posting date
         # and bill_date (invoice date) for document date
         # Payment date is nested in payment.payment_date for scheduled payments
-        payment_info = bill.get('payment', {})
+        payment_info = bill.get('payment') or {}
         paid_date = bill.get('paid_at') or payment_info.get('payment_date') or bill.get('settled_at')
         bill_date = bill.get('bill_date') or bill.get('issued_at') or bill.get('created_at')
         
