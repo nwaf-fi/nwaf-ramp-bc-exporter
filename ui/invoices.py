@@ -60,7 +60,8 @@ def render_invoices_tab(cfg, env):
                     st.success(f"Retrieved {total_bills} bills (preview)")
 
                     # Filter out already-synced for preview too
-                    bills_preview = [b for b in bills if not client.is_transaction_synced(b)]
+                    # bills_preview = [b for b in bills if not client.is_transaction_synced(b)]
+                    bills_preview = bills  # Skip sync filtering until syncing is enabled
 
                     # Exclude items previously marked synced in-session (optimistic client-side filter)
                     synced_inv_ids = set(st.session_state.get('synced_invoices', []))
@@ -155,12 +156,12 @@ def render_invoices_tab(cfg, env):
                 st.success(f"Retrieved {total_bills} bills from Ramp")
 
                 # Remove already-synced bills when possible
-                before = len(bills)
-                bills = [b for b in bills if not client.is_transaction_synced(b)]
-                after = len(bills)
-                skipped = before - after
-                if skipped:
-                    st.info(f"Skipped {skipped} bills already marked synced in Ramp")
+                # before = len(bills)
+                # bills = [b for b in bills if not client.is_transaction_synced(b)]
+                # after = len(bills)
+                # skipped = before - after
+                # if skipped:
+                #     st.info(f"Skipped {skipped} bills already marked synced in Ramp")
 
                 # Exclude items previously marked synced in-session
                 synced_inv_ids = set(st.session_state.get('synced_invoices', []))
