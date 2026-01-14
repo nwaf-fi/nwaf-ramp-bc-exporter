@@ -33,7 +33,6 @@ def ramp_to_bc_rows(transactions: List[Dict[str, Any]], cfg: Dict[str, Any]) -> 
     print(f"--- Transforming {len(transactions)} transactions using direct G/L mapping ---")
     
     journal_lines = []
-    line_no_base = 1000
     
     # Configuration from config.toml
     bc_cfg = cfg['business_central']
@@ -48,7 +47,11 @@ def ramp_to_bc_rows(transactions: List[Dict[str, Any]], cfg: Dict[str, Any]) -> 
         
         # Use transaction date for posting date
         trans_date_str = t.get('user_transaction_time', datetime.now().strftime('%Y-%m-%d'))
-        posting_date = datetime.strptime(trans_date_str[:10], '%Y-%m-%d').strftime('%Y-%m-%d')
+        try:
+            posting_dt = datetime.strptime(trans_date_str[:10], '%Y-%m-%d')
+            posting_date_str = posting_dt.strftime('%m/%d/%Y')
+        except Exception:
+            posting_date_str = datetime.now().strftime('%m/%d/%Y')
         
         doc_no = f"RAMP-{t.get('id', index)}" 
         description = t.get('memo', t.get('merchant_name', 'Ramp Transaction'))
@@ -88,8 +91,8 @@ def ramp_to_bc_rows(transactions: List[Dict[str, Any]], cfg: Dict[str, Any]) -> 
         journal_lines.append({
             'Journal Template Name': bc_cfg.get('template_name', 'GENERAL'),
             'Journal Batch Name': bc_cfg.get('batch_name', 'ACCOUNTANT'),
-            'Line No.': line_no_base,
-            'Posting Date': posting_date,
+            'Posting Date': posting_date_str,
+            'Document Date': posting_date_str,
             'Document Type': doc_type,
             'Document No.': doc_no,
             'Account Type': 'G/L Account',
@@ -102,7 +105,6 @@ def ramp_to_bc_rows(transactions: List[Dict[str, Any]], cfg: Dict[str, Any]) -> 
             'Department Code': department_code or '',
             'Activity Code': activity_code or '',
         })
-        line_no_base += 1000
 
     df_output = pd.DataFrame(journal_lines)
     if df_output.empty:
@@ -198,7 +200,6 @@ def ramp_bills_to_bc_rows(bills: List[Dict[str, Any]], cfg: Dict[str, Any]) -> p
     print(f"--- Transforming {len(bills)} bills ---")
     
     journal_lines = []
-    line_no_base = 1000
     bc_cfg = cfg['business_central']
     
     for index, bill in enumerate(bills):
@@ -222,27 +223,38 @@ def ramp_bills_to_bc_rows(bills: List[Dict[str, Any]], cfg: Dict[str, Any]) -> p
         # Posting date = payment date (for bank reconciliation)
         try:
             if paid_date:
-                posting_date = datetime.fromisoformat(paid_date[:19]).strftime('%Y-%m-%d')
+                posting_dt = datetime.fromisoformat(paid_date[:19])
+                posting_date = posting_dt.strftime('%m/%d/%Y')
             elif bill_date:
-                posting_date = bill_date[:10] if bill_date else datetime.now().strftime('%Y-%m-%d')
+                posting_dt = datetime.fromisoformat(bill_date[:19])
+                posting_date = posting_dt.strftime('%m/%d/%Y')
             else:
-                posting_date = datetime.now().strftime('%Y-%m-%d')
+                posting_date = datetime.now().strftime('%m/%d/%Y')
         except Exception:
             try:
                 date_str = paid_date or bill_date
-                posting_date = date_str[:10] if date_str else datetime.now().strftime('%Y-%m-%d')
+                if date_str:
+                    posting_dt = datetime.strptime(date_str[:10], '%Y-%m-%d')
+                    posting_date = posting_dt.strftime('%m/%d/%Y')
+                else:
+                    posting_date = datetime.now().strftime('%m/%d/%Y')
             except Exception:
-                posting_date = datetime.now().strftime('%Y-%m-%d')
+                posting_date = datetime.now().strftime('%m/%d/%Y')
         
         # Document/Invoice date = bill_date (original invoice date)
         try:
             if bill_date:
-                document_date = datetime.fromisoformat(bill_date[:19]).strftime('%Y-%m-%d')
+                doc_dt = datetime.fromisoformat(bill_date[:19])
+                document_date = doc_dt.strftime('%m/%d/%Y')
             else:
                 document_date = posting_date
         except Exception:
             try:
-                document_date = bill_date[:10] if bill_date else posting_date
+                if bill_date:
+                    doc_dt = datetime.strptime(bill_date[:10], '%Y-%m-%d')
+                    document_date = doc_dt.strftime('%m/%d/%Y')
+                else:
+                    document_date = posting_date
             except Exception:
                 document_date = posting_date
         
@@ -282,7 +294,6 @@ def ramp_bills_to_bc_rows(bills: List[Dict[str, Any]], cfg: Dict[str, Any]) -> p
         journal_lines.append({
             'Journal Template Name': bc_cfg.get('template_name', 'GENERAL'),
             'Journal Batch Name': bc_cfg.get('batch_name', 'ACCOUNTANT'),
-            'Line No.': line_no_base,
             'Posting Date': posting_date,
             'Document Date': document_date,
             'Document Type': 'Invoice',  # Bills are invoices from vendors
@@ -297,7 +308,6 @@ def ramp_bills_to_bc_rows(bills: List[Dict[str, Any]], cfg: Dict[str, Any]) -> p
             'Department Code': str(department_code or ''),
             'Activity Code': str(activity_code or ''),
         })
-        line_no_base += 1000
 
     df_output = pd.DataFrame(journal_lines)
     if df_output.empty:
@@ -317,13 +327,19 @@ def ramp_reimbursements_to_bc_rows(reimbursements: List[Dict[str, Any]], cfg: Di
     print(f"--- Transforming {len(reimbursements)} reimbursements using employee-coded G/L accounts ---")
     
     journal_lines = []
-    line_no_base = 1000
     bc_cfg = cfg['business_central']
     
     for index, reimbursement in enumerate(reimbursements):
         # Extract reimbursement data
         created_date = reimbursement.get('created_at', '')
         posting_date = created_date[:10] if created_date else datetime.now().strftime('%Y-%m-%d')
+        
+        # Format posting date to MM/DD/YYYY for BC
+        try:
+            posting_dt = datetime.strptime(posting_date, '%Y-%m-%d')
+            posting_date_str = posting_dt.strftime('%m/%d/%Y')
+        except Exception:
+            posting_date_str = datetime.now().strftime('%m/%d/%Y')
         
         doc_no = f"REIMB-{reimbursement.get('id', index)}"
         employee_name = reimbursement.get('user', {}).get('name', 'Employee')
@@ -371,8 +387,8 @@ def ramp_reimbursements_to_bc_rows(reimbursements: List[Dict[str, Any]], cfg: Di
             journal_lines.append({
                 'Journal Template Name': bc_cfg.get('template_name', 'GENERAL'),
                 'Journal Batch Name': bc_cfg.get('batch_name', 'RAMP_REIMB'),
-                'Line No.': line_no_base,
-                'Posting Date': posting_date,
+                'Posting Date': posting_date_str,
+                'Document Date': posting_date_str,
                 'Document Type': 'Payment',
                 'Document No.': doc_no,
                 'Account Type': 'G/L Account',
@@ -382,10 +398,9 @@ def ramp_reimbursements_to_bc_rows(reimbursements: List[Dict[str, Any]], cfg: Di
                 'Credit Amount': 0.0,
                 'Bal. Account Type': 'G/L Account',
                 'Bal. Account No.': str(bc_cfg.get('bank_account', 'NT')),  # Bank account (reimbursement payment) as string
-                'Department Code': str(department_code or ''),
-                'Activity Code': str(activity_code or ''),
+                'Department Code': str(department_code or '000'),
+                'Activity Code': str(activity_code or '00'),
             })
-            line_no_base += 1000
 
     df_output = pd.DataFrame(journal_lines)
     if df_output.empty:
@@ -406,7 +421,6 @@ def ramp_cashbacks_to_bc_rows(cashbacks: List[Dict[str, Any]], cfg: Dict[str, An
     print(f"--- Transforming {len(cashbacks)} cashbacks ---")
     
     journal_lines = []
-    line_no_base = 1000
     bc_cfg = cfg['business_central']
     
     for index, cashback in enumerate(cashbacks):
@@ -420,7 +434,14 @@ def ramp_cashbacks_to_bc_rows(cashbacks: List[Dict[str, Any]], cfg: Dict[str, An
             amount = float(amount_obj) if amount_obj else 0.0
             
         earned_date = cashback.get('earned_at', '')
-        posting_date = earned_date[:10] if earned_date else datetime.now().strftime('%Y-%m-%d')
+        try:
+            if earned_date:
+                posting_dt = datetime.strptime(earned_date[:10], '%Y-%m-%d')
+                posting_date_str = posting_dt.strftime('%m/%d/%Y')
+            else:
+                posting_date_str = datetime.now().strftime('%m/%d/%Y')
+        except Exception:
+            posting_date_str = datetime.now().strftime('%m/%d/%Y')
         
         doc_no = f"CASHBACK-{cashback.get('id', index)}"
         description = f"Cashback reward - {cashback.get('description', 'Credit card cashback')}"
@@ -429,8 +450,8 @@ def ramp_cashbacks_to_bc_rows(cashbacks: List[Dict[str, Any]], cfg: Dict[str, An
         journal_lines.append({
             'Journal Template Name': bc_cfg.get('template_name', 'GENERAL'),
             'Journal Batch Name': bc_cfg.get('batch_name', 'RAMP_CASHBACK'),
-            'Line No.': line_no_base,
-            'Posting Date': posting_date,
+            'Posting Date': posting_date_str,
+            'Document Date': posting_date_str,
             'Document Type': 'Payment',
             'Document No.': doc_no,
             'Account Type': 'G/L Account',
@@ -443,7 +464,6 @@ def ramp_cashbacks_to_bc_rows(cashbacks: List[Dict[str, Any]], cfg: Dict[str, An
             'Department Code': '',
             'Activity Code': '',
         })
-        line_no_base += 1000
 
     df_output = pd.DataFrame(journal_lines)
     if df_output.empty:
@@ -463,7 +483,6 @@ def ramp_statements_to_bc_rows(statements: List[Dict[str, Any]], cfg: Dict[str, 
     print(f"--- Transforming {len(statements)} statements ---")
     
     journal_lines = []
-    line_no_base = 1000
     bc_cfg = cfg['business_central']
     
     for index, statement in enumerate(statements):
@@ -479,7 +498,14 @@ def ramp_statements_to_bc_rows(statements: List[Dict[str, Any]], cfg: Dict[str, 
             total_amount = float(total_amount_obj) if total_amount_obj else 0.0
             
         statement_date = statement.get('statement_date', '')
-        posting_date = statement_date[:10] if statement_date else datetime.now().strftime('%Y-%m-%d')
+        try:
+            if statement_date:
+                posting_dt = datetime.strptime(statement_date[:10], '%Y-%m-%d')
+                posting_date_str = posting_dt.strftime('%m/%d/%Y')
+            else:
+                posting_date_str = datetime.now().strftime('%m/%d/%Y')
+        except Exception:
+            posting_date_str = datetime.now().strftime('%m/%d/%Y')
         
         doc_no = f"STMT-{statement.get('id', index)}"
         description = f"Credit card statement - {statement.get('card', {}).get('last_four', 'XXXX')}"
@@ -489,8 +515,8 @@ def ramp_statements_to_bc_rows(statements: List[Dict[str, Any]], cfg: Dict[str, 
         journal_lines.append({
             'Journal Template Name': bc_cfg.get('template_name', 'GENERAL'),
             'Journal Batch Name': bc_cfg.get('batch_name', 'RAMP_STMTS'),
-            'Line No.': line_no_base,
-            'Posting Date': posting_date,
+            'Posting Date': posting_date_str,
+            'Document Date': posting_date_str,
             'Document Type': '',
             'Document No.': doc_no,
             'Account Type': 'G/L Account',
@@ -503,7 +529,6 @@ def ramp_statements_to_bc_rows(statements: List[Dict[str, Any]], cfg: Dict[str, 
             'Department Code': '',
             'Activity Code': '',
         })
-        line_no_base += 1000
 
     df_output = pd.DataFrame(journal_lines)
     if df_output.empty:
@@ -693,8 +718,8 @@ def ramp_credit_card_to_bc_rows(transactions: List[Dict[str, Any]], cfg: Dict[st
             'Credit Amount': 0.0,
             'Bal. Account Type': 'G/L Account',
             'Bal. Account No.': str(bc_cfg.get('bank_account', 'NT')),
-            'Department Code': '',
-            'Activity Code': '',
+            'Department Code': '000',
+            'Activity Code': '00',
         })
     
     df_output = pd.DataFrame(journal_lines)
