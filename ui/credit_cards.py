@@ -91,7 +91,7 @@ def render_credit_cards_tab(cfg, env):
                         if t.get('accounting_date'):
                             t['payment_date'] = t.get('accounting_date')
 
-                    df = ramp_credit_card_to_bc_rows(fetched, cfg, write_audit=False)
+                    df = ramp_credit_card_to_bc_rows(fetched, cfg, write_audit=False, statement=latest_stmt)
 
                     st.subheader("Preview (first 10 rows)")
                     if df is None or df.empty:

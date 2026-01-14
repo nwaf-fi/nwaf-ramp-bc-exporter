@@ -9,7 +9,7 @@ from typing import Iterable
 
 # Define the standard BC General Journal column order
 BC_COLUMN_ORDER = [
-    'Journal Template Name', 'Journal Batch Name', 'Line No.', 'Posting Date', 
+    'Journal Template Name', 'Journal Batch Name', 'Posting Date', 
     'Document Date', 'Document Type', 'Document No.', 'Account Type', 'Account No.', 
     'Description', 'Debit Amount', 'Credit Amount', 'Bal. Account Type', 
     'Bal. Account No.', 'Department Code', 'Activity Code'
@@ -511,7 +511,7 @@ def ramp_statements_to_bc_rows(statements: List[Dict[str, Any]], cfg: Dict[str, 
     return df_output[BC_COLUMN_ORDER]
 
 
-def ramp_credit_card_to_bc_rows(transactions: List[Dict[str, Any]], cfg: Dict[str, Any], write_audit: bool = True) -> pd.DataFrame:
+def ramp_credit_card_to_bc_rows(transactions: List[Dict[str, Any]], cfg: Dict[str, Any], write_audit: bool = True, statement: Dict[str, Any] = None) -> pd.DataFrame:
     """
     Converts Ramp credit-card transactions into a single-line-per-transaction
     Business Central-friendly DataFrame using the user's requested column
@@ -533,6 +533,9 @@ def ramp_credit_card_to_bc_rows(transactions: List[Dict[str, Any]], cfg: Dict[st
       - Activity = activity_code or ''
       - Debit = transaction expense (positive)
       - Credit = refunds (positive)
+    
+    A final line is added that debits the credit card payable account (26100)
+    and credits the bank account (NT) for the total statement amount.
     """
     if not transactions:
         print("No credit-card transactions provided for transformation.")
@@ -542,7 +545,6 @@ def ramp_credit_card_to_bc_rows(transactions: List[Dict[str, Any]], cfg: Dict[st
 
     journal_lines = []
     audit_rows = []
-    line_no_base = 1000
     bc_cfg = cfg.get('business_central', {})
 
     # Optional payment date override configured in config.toml
@@ -629,7 +631,6 @@ def ramp_credit_card_to_bc_rows(transactions: List[Dict[str, Any]], cfg: Dict[st
         journal_lines.append({
             'Journal Template Name': bc_cfg.get('template_name', 'GENERAL'),
             'Journal Batch Name': bc_cfg.get('batch_name', 'ACCOUNTANT'),
-            'Line No.': line_no_base,
             'Posting Date': posting_date_str,
             'Document Date': posting_date_str,
             'Document Type': 'Payment',
@@ -657,8 +658,45 @@ def ramp_credit_card_to_bc_rows(transactions: List[Dict[str, Any]], cfg: Dict[st
             'activity': activity_code or '',
         })
 
-        line_no_base += 1000
-
+    # Add final payment line: Debit 26100 (CC Payable), Credit NT (Bank)
+    if journal_lines and statement:
+        # Calculate total amount from transactions
+        total_amount = sum(line['Debit Amount'] - line['Credit Amount'] for line in journal_lines)
+        
+        # Get statement date range for description
+        start_date = (statement.get('start_date') or '')[:10]
+        end_date = (statement.get('end_date') or '')[:10]
+        payment_desc = f"CC Statement Payment {start_date} to {end_date}"
+        
+        # Use statement end date as posting date
+        try:
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+            payment_posting_date = end_dt.strftime('%m/%d/%Y')
+        except Exception:
+            payment_posting_date = datetime.now().strftime('%m/%d/%Y')
+        
+        # Statement ID for document number
+        stmt_doc_no = f"RAMP-STMT-{statement.get('id', 'PAYMENT')}"
+        
+        # Add payment line
+        journal_lines.append({
+            'Journal Template Name': bc_cfg.get('template_name', 'GENERAL'),
+            'Journal Batch Name': bc_cfg.get('batch_name', 'ACCOUNTANT'),
+            'Posting Date': payment_posting_date,
+            'Document Date': payment_posting_date,
+            'Document Type': 'Payment',
+            'Document No.': stmt_doc_no,
+            'Account Type': 'G/L Account',
+            'Account No.': str(bc_cfg.get('ramp_card_account', '26100')),
+            'Description': payment_desc,
+            'Debit Amount': round(total_amount, 2),
+            'Credit Amount': 0.0,
+            'Bal. Account Type': 'G/L Account',
+            'Bal. Account No.': str(bc_cfg.get('bank_account', 'NT')),
+            'Department Code': '',
+            'Activity Code': '',
+        })
+    
     df_output = pd.DataFrame(journal_lines)
     if df_output.empty:
         print("No valid credit-card transactions found. Returning empty DataFrame.")
