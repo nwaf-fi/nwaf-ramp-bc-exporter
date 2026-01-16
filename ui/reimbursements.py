@@ -130,6 +130,13 @@ def render_reimbursements_tab(cfg, env):
                 logging.exception("Preview error: %s", tb)
 
 
+    # Clear cached results when date range changes
+    if st.session_state.get('reim_start_cached') != reim_start or st.session_state.get('reim_end_cached') != reim_end:
+        st.session_state.pop('reim_data', None)
+        st.session_state.pop('reim_df', None)
+        st.session_state['reim_start_cached'] = reim_start
+        st.session_state['reim_end_cached'] = reim_end
+
     if st.button("Generate Reimbursements JE for date range", key='reimbursements_gen_reim_btn'):
         with st.spinner("Fetching reimbursements and preparing export..."):
             try:
@@ -148,6 +155,7 @@ def render_reimbursements_tab(cfg, env):
 
                 if not reims:
                     st.info('No reimbursements found for the specified period.')
+                    st.session_state.pop('reim_data', None)
                     st.stop()
 
                 st.success(f"Retrieved {len(reims)} reimbursements (pre-filter)")
@@ -199,6 +207,10 @@ def render_reimbursements_tab(cfg, env):
 
                 r_df = ramp_reimbursements_to_bc_rows(reims, cfg)
 
+                # Cache data in session state for subsequent interactions
+                st.session_state['reim_data'] = reims
+                st.session_state['reim_df'] = r_df
+
                 # totals
                 reim_total = 0.0
                 for r in reims:
@@ -241,128 +253,143 @@ def render_reimbursements_tab(cfg, env):
                     except Exception:
                         st.warning('Could not write audit NDJSON file.')
 
-                # Optionally mark reimbursements as synced (interactive flow)
-                if mark_synced and reims:
-                    with st.expander('Mark reimbursements as synced', expanded=False):
-                        st.write(f"{len(reims)} reimbursements are available to mark as synced.")
-
-                        # Capability check
-                        sync_supported = client.check_accounting_sync_enabled()
-                        if not sync_supported:
-                            st.warning('Your accounting connection does not support API-based syncing. See Ramp docs to upgrade the connection.')
-                            st.markdown('[Ramp accounting docs](https://docs.ramp.com/developer-api/v1/guides/accounting)')
-
-                        enable_live = st.checkbox(
-                            'Enable live Ramp sync',
-                            value=False,
-                            key='reim_enable_live_sync',
-                            disabled=(not sync_supported),
-                            help=(
-                                'When enabled, the app will send ONE single request to Ramp to mark ALL selected reimbursements as synced. '
-                                'This is faster and safer than sending one request per reimbursement. Leave unchecked to perform a dry run (no live requests).'
-                            ),
-                        )
-                        if not enable_live:
-                            if sync_supported:
-                                st.info('Dry-run mode: no live requests will be sent. Toggle the checkbox above to perform a single batch request when you are ready.')
-                            else:
-                                st.info('API-based sync is not available for this accounting connection. Choose Local-only to record syncs locally.')
-
-                        local_only = False
-                        if not sync_supported:
-                            local_only = st.checkbox('Record these reimbursements as synced locally only (no Ramp API calls)', value=True, key='reim_local_only')
-
-                        if st.checkbox('I confirm: mark these reimbursements as synced', value=False, key='reim_confirm_mark'):
-                            if st.button('Mark reimbursements as synced in Ramp', key='reim_mark_btn'):
-                                with st.spinner('Marking reimbursements as synced...'):
-                                    sync_ref = f"BC_ReimExport_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                                    results = []
-                                    progress = st.progress(0)
-                                    total = len(reims)
-                                    i = 0
-
-                                    if local_only:
-                                        for r in reims:
-                                            i += 1
-                                            tid = r.get('id')
-                                            results.append({'timestamp': datetime.now().isoformat(), 'transaction_id': tid, 'ok': True, 'message': 'LOCAL_ONLY'})
-                                            progress.progress(i / total)
-                                    else:
-                                        # Use a dedicated client for marking with explicit enable_sync
-                                        marker_client = RampClient(
-                                            base_url=cfg['ramp']['base_url'],
-                                            token_url=cfg['ramp']['token_url'],
-                                            client_id=env['RAMP_CLIENT_ID'],
-                                            client_secret=env['RAMP_CLIENT_SECRET'],
-                                            enable_sync=enable_live
-                                        )
-                                        marker_client.authenticate()
-
-                                        # Batch POST using post_accounting_syncs (preferred over per-item POSTs)
-                                        successful_syncs = []
-                                        failed_syncs = []
-                                        for r in reims:
-                                            successful_syncs.append({'id': r.get('id'), 'reference_id': sync_ref})
-
-                                        # dry_run flag: when enable_live is True we actually POST (dry_run=False)
-                                        dry_run_flag = not enable_live
-
-                                        ok_post, info_post = marker_client.post_accounting_syncs(
-                                            successful_syncs=successful_syncs,
-                                            failed_syncs=failed_syncs,
-                                            sync_type='REIMBURSEMENT_SYNC',
-                                            idempotency_key=sync_ref,
-                                            dry_run=dry_run_flag
-                                        )
-
-                                        # Build per-item results and update progress for the UI
-                                        i = 0
-                                        for r in reims:
-                                            i += 1
-                                            tid = r.get('id')
-                                            if ok_post:
-                                                # For dry-run we return a payload preview dict; for real calls we may get a response dict
-                                                if isinstance(info_post, dict):
-                                                    msg = json.dumps(info_post, ensure_ascii=False)[:1000]
-                                                else:
-                                                    msg = str(info_post)
-                                            else:
-                                                msg = str(info_post)
-
-                                            results.append({'timestamp': datetime.now().isoformat(), 'transaction_id': tid, 'ok': bool(ok_post), 'message': msg})
-                                            progress.progress(i / total)
-
-                                    successes = sum(1 for res in results if res['ok'])
-                                    failures = len(results) - successes
-
-                                    if (not local_only) and enable_live:
-                                        st.success(f"Ramp sync complete: {successes} succeeded, {failures} failed.")
-                                    elif local_only:
-                                        st.success(f"Local-only: {successes} recorded locally as synced.")
-                                    else:
-                                        st.info(f"Dry run complete: {successes} would be marked synced (no live requests were sent).")
-
-                                    # Write audit CSV
-                                    user_email_local = globals().get('user_email', '')
-                                    audit_path = _write_sync_audit(results, sync_ref, user_email=user_email_local)
-                                    if audit_path:
-                                        with open(audit_path, 'rb') as f:
-                                            st.download_button("Download reimbursements sync audit CSV", f, file_name=os.path.basename(audit_path), key='reimbursements_download_sync_audit_csv')
-
-                                    # Show success/failure lists
-                                    res_df = pd.DataFrame(results)
-                                    if not res_df.empty:
-                                        st.subheader('Sync Results')
-                                        st.write(res_df)
-
-                                    # If live sync actually performed and succeeded for some items, add to session exclusion set
-                                    if (not local_only) and enable_live and successes:
-                                        synced_ids = set(st.session_state.get('synced_reimbursements', []))
-                                        for rres in results:
-                                            if rres.get('ok'):
-                                                synced_ids.add(str(rres.get('transaction_id')))
-                                        st.session_state['synced_reimbursements'] = list(synced_ids)
-                                        st.success('Successful syncs have been recorded in-session and will be omitted from future pulls.')
-
             except Exception as e:
                 st.error(f"Error generating reimbursements: {e}")
+
+    # After generation, show sync options if data is cached and mark_synced is enabled
+    reims_cached = st.session_state.get('reim_data')
+    r_df_cached = st.session_state.get('reim_df')
+    
+    if mark_synced and reims_cached:
+        st.markdown('---')
+        st.subheader('Post-generation actions')
+        with st.expander('Mark reimbursements as synced', expanded=True):
+            st.write(f"{len(reims_cached)} reimbursements are available to mark as synced.")
+
+            # Create a fresh client for checking sync capability
+            client = RampClient(
+                base_url=cfg['ramp']['base_url'],
+                token_url=cfg['ramp']['token_url'],
+                client_id=env['RAMP_CLIENT_ID'],
+                client_secret=env['RAMP_CLIENT_SECRET'],
+                enable_sync=st.session_state.get('enable_live_ramp_sync', False)
+            )
+            client.authenticate()
+
+            # Capability check
+            sync_supported = client.check_accounting_sync_enabled()
+            if not sync_supported:
+                st.warning('Your accounting connection does not support API-based syncing. See Ramp docs to upgrade the connection.')
+                st.markdown('[Ramp accounting docs](https://docs.ramp.com/developer-api/v1/guides/accounting)')
+
+            enable_live = st.checkbox(
+                'Enable live Ramp sync',
+                value=False,
+                key='reim_enable_live_sync',
+                disabled=(not sync_supported),
+                help=(
+                    'When enabled, the app will send ONE single request to Ramp to mark ALL selected reimbursements as synced. '
+                    'This is faster and safer than sending one request per reimbursement. Leave unchecked to perform a dry run (no live requests).'
+                ),
+            )
+            if not enable_live:
+                if sync_supported:
+                    st.info('Dry-run mode: no live requests will be sent. Toggle the checkbox above to perform a single batch request when you are ready.')
+                else:
+                    st.info('API-based sync is not available for this accounting connection. Choose Local-only to record syncs locally.')
+
+            local_only = False
+            if not sync_supported:
+                local_only = st.checkbox('Record these reimbursements as synced locally only (no Ramp API calls)', value=True, key='reim_local_only')
+
+            if st.checkbox('I confirm: mark these reimbursements as synced', value=False, key='reim_confirm_mark'):
+                if st.button('Mark reimbursements as synced in Ramp', key='reim_mark_btn'):
+                    with st.spinner('Marking reimbursements as synced...'):
+                        sync_ref = f"BC_ReimExport_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                        results = []
+                        progress = st.progress(0)
+                        total = len(reims_cached)
+                        i = 0
+
+                        if local_only:
+                            for r in reims_cached:
+                                i += 1
+                                tid = r.get('id')
+                                results.append({'timestamp': datetime.now().isoformat(), 'transaction_id': tid, 'ok': True, 'message': 'LOCAL_ONLY'})
+                                progress.progress(i / total)
+                        else:
+                            # Use a dedicated client for marking with explicit enable_sync
+                            marker_client = RampClient(
+                                base_url=cfg['ramp']['base_url'],
+                                token_url=cfg['ramp']['token_url'],
+                                client_id=env['RAMP_CLIENT_ID'],
+                                client_secret=env['RAMP_CLIENT_SECRET'],
+                                enable_sync=enable_live
+                            )
+                            marker_client.authenticate()
+
+                            # Batch POST using post_accounting_syncs (preferred over per-item POSTs)
+                            successful_syncs = []
+                            failed_syncs = []
+                            for r in reims_cached:
+                                successful_syncs.append({'id': r.get('id'), 'reference_id': sync_ref})
+
+                            # dry_run flag: when enable_live is True we actually POST (dry_run=False)
+                            dry_run_flag = not enable_live
+
+                            ok_post, info_post = marker_client.post_accounting_syncs(
+                                successful_syncs=successful_syncs,
+                                failed_syncs=failed_syncs,
+                                sync_type='REIMBURSEMENT_SYNC',
+                                idempotency_key=sync_ref,
+                                dry_run=dry_run_flag
+                            )
+
+                            # Build per-item results and update progress for the UI
+                            i = 0
+                            for r in reims_cached:
+                                i += 1
+                                tid = r.get('id')
+                                if ok_post:
+                                    # For dry-run we return a payload preview dict; for real calls we may get a response dict
+                                    if isinstance(info_post, dict):
+                                        msg = json.dumps(info_post, ensure_ascii=False)[:1000]
+                                    else:
+                                        msg = str(info_post)
+                                else:
+                                    msg = str(info_post)
+
+                                results.append({'timestamp': datetime.now().isoformat(), 'transaction_id': tid, 'ok': bool(ok_post), 'message': msg})
+                                progress.progress(i / total)
+
+                        successes = sum(1 for res in results if res['ok'])
+                        failures = len(results) - successes
+
+                        if (not local_only) and enable_live:
+                            st.success(f"Ramp sync complete: {successes} succeeded, {failures} failed.")
+                        elif local_only:
+                            st.success(f"Local-only: {successes} recorded locally as synced.")
+                        else:
+                            st.info(f"Dry run complete: {successes} would be marked synced (no live requests were sent).")
+
+                        # Write audit CSV
+                        user_email_local = globals().get('user_email', '')
+                        audit_path = _write_sync_audit(results, sync_ref, user_email=user_email_local)
+                        if audit_path:
+                            with open(audit_path, 'rb') as f:
+                                st.download_button("Download reimbursements sync audit CSV", f, file_name=os.path.basename(audit_path), key='reimbursements_download_sync_audit_csv')
+
+                        # Show success/failure lists
+                        res_df = pd.DataFrame(results)
+                        if not res_df.empty:
+                            st.subheader('Sync Results')
+                            st.write(res_df)
+
+                        # If live sync actually performed and succeeded for some items, add to session exclusion set
+                        if (not local_only) and enable_live and successes:
+                            synced_ids = set(st.session_state.get('synced_reimbursements', []))
+                            for rres in results:
+                                if rres.get('ok'):
+                                    synced_ids.add(str(rres.get('transaction_id')))
+                            st.session_state['synced_reimbursements'] = list(synced_ids)
+                            st.success('Successful syncs have been recorded in-session and will be omitted from future pulls.')
