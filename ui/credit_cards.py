@@ -10,30 +10,91 @@ from utils import _extract_amount, _write_sync_audit
 
 def render_credit_cards_tab(cfg, env):
     st.subheader("Credit Card Statement Export")
-    st.write("This panel automatically fetches the latest card statement and prepares a Business Central journal CSV for download.")
+    st.write("Select a credit card statement from the dropdown to export transactions for that period.")
 
-    auto_fetch = True  # per UX requirement: automatically fetch latest statement on render
-
-    if auto_fetch:
-        with st.spinner("Authenticating and fetching latest statement..."):
+    # Fetch available statements on load
+    if 'cc_statements' not in st.session_state:
+        with st.spinner("Loading available statements..."):
             try:
                 client = RampClient(
                     base_url=cfg['ramp']['base_url'],
                     token_url=cfg['ramp']['token_url'],
                     client_id=env['RAMP_CLIENT_ID'],
                     client_secret=env['RAMP_CLIENT_SECRET'],
-                    enable_sync=st.session_state.get('enable_live_ramp_sync', False)
+                    enable_sync=False
                 )
                 client.authenticate()
-
                 stmts = client.get_statements()
-                if not stmts:
-                    st.info("No statements found for this account")
-                else:
-                    latest_stmt = stmts[0]
-                    s = (latest_stmt.get('start_date') or '')[:10]
-                    e = (latest_stmt.get('end_date') or '')[:10]
-                    st.markdown(f"**Statement period:** {s} → {e}")
+                st.session_state['cc_statements'] = stmts if stmts else []
+            except Exception as e:
+                st.error(f"Error loading statements: {e}")
+                st.session_state['cc_statements'] = []
+
+    stmts = st.session_state.get('cc_statements', [])
+    
+    if not stmts:
+        st.info("No statements found for this account")
+        if st.button("Refresh Statements", key='cc_refresh_statements'):
+            st.session_state.pop('cc_statements', None)
+            st.rerun()
+    else:
+        # Create statement options for dropdown
+        statement_options = []
+        for stmt in stmts:
+            start_date = (stmt.get('start_date') or '')[:10]
+            end_date = (stmt.get('end_date') or '')[:10]
+            stmt_id = stmt.get('id', 'unknown')
+            # Format: "Dec 01, 2025 - Dec 31, 2025 (ID: abc123)"
+            try:
+                start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+                end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+                label = f"{start_dt.strftime('%b %d, %Y')} - {end_dt.strftime('%b %d, %Y')}"
+            except:
+                label = f"{start_date} - {end_date}"
+            statement_options.append((label, stmt_id, start_date, end_date, stmt))
+        
+        # Dropdown to select statement
+        selected_idx = st.selectbox(
+            "Select Statement Period",
+            range(len(statement_options)),
+            format_func=lambda i: statement_options[i][0],
+            key='cc_statement_selector'
+        )
+        
+        selected_stmt_data = statement_options[selected_idx]
+        selected_label, selected_id, start_date_str, end_date_str, latest_stmt = selected_stmt_data
+        
+        # Display selected statement info
+        st.markdown(f"**Statement period:** {start_date_str} → {end_date_str}")
+        
+        # Auto-populate date fields (for reference/display)
+        col_a, col_b = st.columns(2)
+        with col_a:
+            try:
+                start_date_obj = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            except:
+                start_date_obj = datetime.now().date()
+            st.date_input("Start Date", value=start_date_obj, key='cc_start_date', disabled=True)
+        with col_b:
+            try:
+                end_date_obj = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            except:
+                end_date_obj = datetime.now().date()
+            st.date_input("End Date", value=end_date_obj, key='cc_end_date', disabled=True)
+        
+        # Generate button
+        if st.button("Generate Credit Card Journal for Selected Statement", key='cc_gen_stmt_btn'):
+            with st.spinner("Fetching transactions for selected statement..."):
+                try:
+                    client = RampClient(
+                        base_url=cfg['ramp']['base_url'],
+                        token_url=cfg['ramp']['token_url'],
+                        client_id=env['RAMP_CLIENT_ID'],
+                        client_secret=env['RAMP_CLIENT_SECRET'],
+                        enable_sync=st.session_state.get('enable_live_ramp_sync', False)
+                    )
+                    client.authenticate()
+                    client.authenticate()
 
                     # Get authoritative statement totals (try charges -> balance_sections -> ending_balance)
                     stmt_charges = _extract_amount(latest_stmt.get('charges') or {})
@@ -101,8 +162,10 @@ def render_credit_cards_tab(cfg, env):
 
                     if df is not None and not df.empty and (not (strict_mode and mismatch)):
                         csv_bytes = df.to_csv(index=False).encode('utf-8')
-                        fname = f"v2_cc_statement_journal_{s.replace('-', '')}_{e.replace('-', '')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
-                        st.download_button("Download CC Journal (Latest Statement)", data=csv_bytes, file_name=fname, mime='text/csv', key='cc_download_journal')
+                        fname = f"v2_cc_statement_journal_{start_date_str.replace('-', '')}_{end_date_str.replace('-', '')}_{datetime.now().strftime('%Y%m%dT%H%M%S')}.csv"
+                        st.download_button("Download CC Journal (Selected Statement)", data=csv_bytes, file_name=fname, mime='text/csv', key='cc_download_journal')
+
+                        st.download_button("Download CC Journal (Selected Statement)", data=csv_bytes, file_name=fname, mime='text/csv', key='cc_download_journal')
 
                         # Post-generation sync actions (interactive, per-run)
                         cc_cached = fetched
@@ -192,5 +255,5 @@ def render_credit_cards_tab(cfg, env):
                                                         synced_ids.add(str(rres.get('transaction_id')))
                                                 st.session_state['synced_cc_transactions'] = list(synced_ids)
 
-            except Exception as ex:
-                st.error(f"Error fetching statement: {ex}")
+                except Exception as ex:
+                    st.error(f"Error fetching statement: {ex}")
