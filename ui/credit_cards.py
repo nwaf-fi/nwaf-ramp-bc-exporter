@@ -94,7 +94,6 @@ def render_credit_cards_tab(cfg, env):
                         enable_sync=st.session_state.get('enable_live_ramp_sync', False)
                     )
                     client.authenticate()
-                    client.authenticate()
 
                     # Get authoritative statement totals (try charges -> balance_sections -> ending_balance)
                     stmt_charges = _extract_amount(latest_stmt.get('charges') or {})
