@@ -10,9 +10,9 @@ from datetime import date, datetime, timezone
 def _date_to_iso(d) -> str:
     """Convert a date or datetime to ISO 8601 UTC string for Ramp API filters."""
     if isinstance(d, datetime):
-        return d.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return d.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
     if isinstance(d, date):
-        return datetime(d.year, d.month, d.day, tzinfo=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return datetime(d.year, d.month, d.day, tzinfo=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
     return str(d)
 
 class RampClient:
