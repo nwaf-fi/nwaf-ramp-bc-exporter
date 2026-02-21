@@ -62,8 +62,9 @@ def render_invoices_tab(cfg, env):
                 bills = []
                 bills_without_date = 0
                 for b in all_bills:
-                    # Try payment_date first (scheduled/actual payment date), then paid_at (when payment was marked paid)
-                    payment_date_str = b.get('payment_date') or b.get('paid_at')
+                    # payment_date is nested in payment.payment_date, paid_at is direct field
+                    payment_info = b.get('payment') or {}
+                    payment_date_str = payment_info.get('payment_date') or b.get('paid_at')
                     if payment_date_str:
                         try:
                             payment_dt = datetime.fromisoformat(payment_date_str[:10])
@@ -177,8 +178,9 @@ def render_invoices_tab(cfg, env):
                 # Filter client-side by payment date
                 bills = []
                 for b in all_bills:
-                    # Try payment_date first (scheduled/actual payment date), then paid_at (when payment was marked paid)
-                    payment_date_str = b.get('payment_date') or b.get('paid_at')
+                    # payment_date is nested in payment.payment_date, paid_at is direct field
+                    payment_info = b.get('payment') or {}
+                    payment_date_str = payment_info.get('payment_date') or b.get('paid_at')
                     if payment_date_str:
                         try:
                             payment_dt = datetime.fromisoformat(payment_date_str[:10])
