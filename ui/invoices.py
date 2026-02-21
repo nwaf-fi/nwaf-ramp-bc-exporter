@@ -15,6 +15,55 @@ def render_invoices_tab(cfg, env):
     st.subheader("Purchase Invoice Export (Bills)")
     st.write("Generate Purchase Invoices CSV from Ramp bills filtered by payment send date (for bank reconciliation).")
 
+    # Debug section
+    with st.expander("🔍 Debug: Test Bill Count by Date Range"):
+        st.write("Quick test to count bills with payment dates in a range (does not generate exports)")
+        debug_col1, debug_col2 = st.columns(2)
+        with debug_col1:
+            debug_start = st.date_input("Test Start Date", value=datetime(2026, 1, 1).date(), key='debug_start')
+        with debug_col2:
+            debug_end = st.date_input("Test End Date", value=datetime(2026, 1, 31).date(), key='debug_end')
+        
+        if st.button("Count Bills in Range", key='debug_count_btn'):
+            with st.spinner("Fetching bills..."):
+                try:
+                    client = RampClient(
+                        base_url=cfg['ramp']['base_url'],
+                        token_url=cfg['ramp']['token_url'],
+                        client_id=env['RAMP_CLIENT_ID'],
+                        client_secret=env['RAMP_CLIENT_SECRET'],
+                        enable_sync=False
+                    )
+                    client.authenticate()
+                    
+                    all_bills = client.get_bills(page_size=cfg['ramp'].get('page_size', 200), sync_ready=True) or []
+                    st.info(f"Total bills fetched: {len(all_bills)}")
+                    
+                    filtered = []
+                    for bill in all_bills:
+                        payment_obj = bill.get('payment') or {}
+                        payment_date_str = payment_obj.get('payment_date')
+                        
+                        if payment_date_str:
+                            try:
+                                payment_date = datetime.fromisoformat(payment_date_str[:10]).date()
+                                if debug_start <= payment_date <= debug_end:
+                                    filtered.append(bill)
+                            except:
+                                pass
+                    
+                    st.success(f"✅ Bills with payment_date between {debug_start} and {debug_end}: **{len(filtered)}**")
+                    
+                    if filtered and len(filtered) <= 20:
+                        st.write("Sample bills:")
+                        for bill in filtered[:20]:
+                            payment_obj = bill.get('payment') or {}
+                            payment_date_str = payment_obj.get('payment_date')
+                            st.write(f"- Invoice #{bill.get('invoice_number', 'N/A')}: {payment_date_str[:10] if payment_date_str else 'N/A'} (Status: {bill.get('status', 'N/A')})")
+                    
+                except Exception as e:
+                    st.error(f"Error: {e}")
+
     # Date range inputs
     col_a, col_b = st.columns(2)
     with col_a:
