@@ -41,19 +41,15 @@ def render_invoices_tab(cfg, env):
                 client.authenticate()
 
                 # Filter by payment send date for bank reconciliation
-                # Note: Ramp API's start_date/end_date filter by invoice date, not payment date
-                # So we fetch all sync-ready bills and filter client-side by payment date
+                # Note: Only fetch PAID bills since OPEN bills don't have paid_at dates yet
                 from_payment_dt = inv_start
                 to_payment_dt = inv_end
 
-                # Fetch both OPEN and PAID bills (sync_ready=True ensures they're ready for export)
-                # OPEN bills have scheduled payment dates, PAID bills have actual payment dates
-                bills_open = client.get_bills(status='OPEN', page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
+                # Fetch only PAID bills (these have paid_at dates for bank reconciliation)
                 bills_paid = client.get_bills(status='PAID', page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
                 
-                # Merge the two lists
-                all_bills = (bills_open or []) + (bills_paid or [])
-                st.info(f"Fetched {len(all_bills)} total bills from API")
+                all_bills = bills_paid or []
+                st.info(f"Fetched {len(all_bills)} PAID bills from API")
                 
                 # Debug: show available date fields from first bill
                 if all_bills:
@@ -62,19 +58,19 @@ def render_invoices_tab(cfg, env):
                     with st.expander("Debug: Available date fields on first bill", expanded=False):
                         st.json(date_fields)
                 
-                # Filter client-side by payment date with fallbacks
+                # Filter client-side by paid_at date
                 bills = []
                 bills_without_date = 0
                 for b in all_bills:
-                    # Try payment_date first, then fallback to other date fields
-                    payment_date_str = b.get('payment_date') or b.get('paid_at') or b.get('settled_at')
+                    # Use paid_at for PAID bills (this is when payment actually went through)
+                    payment_date_str = b.get('paid_at')
                     if payment_date_str:
                         try:
                             payment_dt = datetime.fromisoformat(payment_date_str[:10])
                             if from_payment_dt <= payment_dt.date() <= to_payment_dt:
                                 bills.append(b)
                         except Exception as e:
-                            st.warning(f"Error parsing date '{payment_date_str}': {e}")
+                            st.warning(f"Error parsing paid_at '{payment_date_str}': {e}")
                     else:
                         bills_without_date += 1
                 
@@ -163,24 +159,20 @@ def render_invoices_tab(cfg, env):
                 client.authenticate()
 
                 # Filter by payment send date for bank reconciliation
-                # Note: Ramp API's start_date/end_date filter by invoice date, not payment date
-                # So we fetch all sync-ready bills and filter client-side by payment date
+                # Note: Only fetch PAID bills since OPEN bills don't have paid_at dates yet
                 from_payment_dt = inv_start
                 to_payment_dt = inv_end
 
-                # Fetch both OPEN and PAID bills (sync_ready=True ensures they're ready for export)
-                # OPEN bills have scheduled payment dates, PAID bills have actual payment dates
-                bills_open = client.get_bills(status='OPEN', page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
+                # Fetch only PAID bills (these have paid_at dates for bank reconciliation)
                 bills_paid = client.get_bills(status='PAID', page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
                 
-                # Merge the two lists
-                all_bills = (bills_open or []) + (bills_paid or [])
+                all_bills = bills_paid or []
                 
-                # Filter client-side by payment date
+                # Filter client-side by paid_at date
                 bills = []
                 for b in all_bills:
-                    # payment_date is a direct field on the bill object per Ramp API docs
-                    payment_date_str = b.get('payment_date')
+                    # Use paid_at for PAID bills (this is when payment actually went through)
+                    payment_date_str = b.get('paid_at')
                     if payment_date_str:
                         try:
                             payment_dt = datetime.fromisoformat(payment_date_str[:10])
@@ -189,8 +181,6 @@ def render_invoices_tab(cfg, env):
                         except:
                             pass
                 
-                # Merge the two lists
-                bills = (bills_open or []) + (bills_paid or [])
                 total_bills = len(bills) if isinstance(bills, list) else 0
                 if not bills:
                     st.info('No open or paid bills found for the specified period.')
