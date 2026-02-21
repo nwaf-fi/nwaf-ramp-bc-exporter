@@ -129,19 +129,38 @@ class RampClient:
         client-side after fetching.
         """
         all_bills = []
-        next_cursor = None
+        next_url = None
         page_num = 0
 
         while True:
             page_num += 1
-            params = {"limit": page_size}
-            if next_cursor:
-                params["start"] = next_cursor
-
-            url = self._build_endpoint("bills")
-            print(f"🔍 Fetching bills page {page_num} with params: {params}")
             
-            resp = self.session.get(url, params=params)
+            # Use next_url directly if available, otherwise build initial URL
+            if next_url:
+                url = next_url
+                print(f"🔍 Fetching bills page {page_num} using next URL")
+            else:
+                url = self._build_endpoint("bills")
+                params = {"limit": page_size}
+                print(f"🔍 Fetching bills page {page_num} with params: {params}")
+                resp = self.session.get(url, params=params)
+                resp.raise_for_status()
+                response = resp.json()
+                
+                data = response.get("data") or []
+                all_bills.extend(data)
+                print(f"📄 Page {page_num}: fetched {len(data)} items (total so far: {len(all_bills)})")
+
+                page_info = response.get("page") or {}
+                next_url = page_info.get("next")
+                if next_url:
+                    print(f"🔄 Next URL found, fetching next page...")
+                if not next_url:
+                    break
+                continue
+            
+            # When using next_url, make request without additional params
+            resp = self.session.get(url)
             resp.raise_for_status()
             response = resp.json()
             
@@ -150,10 +169,10 @@ class RampClient:
             print(f"📄 Page {page_num}: fetched {len(data)} items (total so far: {len(all_bills)})")
 
             page_info = response.get("page") or {}
-            next_cursor = page_info.get("next")
-            if next_cursor:
-                print(f"🔄 Next cursor found, fetching next page...")
-            if not next_cursor:
+            next_url = page_info.get("next")
+            if next_url:
+                print(f"🔄 Next URL found, fetching next page...")
+            if not next_url:
                 break
 
         print(f"✅ Retrieved {len(all_bills)} total bills across {page_num} page(s)")
