@@ -36,14 +36,11 @@ def render_invoices_tab(cfg, env):
                     )
                     client.authenticate()
                     
-                    # Fetch bills using API date filter for payment send date
-                    # The API's start_date/end_date parameters filter by payment.payment_date
-                    all_bills = client.get_bills(
-                        start_date=debug_start.isoformat(),
-                        end_date=debug_end.isoformat(),
-                        page_size=500
-                    ) or []
-                    st.info(f"Total bills fetched with payment dates {debug_start} to {debug_end}: {len(all_bills)}")
+                    # Fetch ALL bills - API doesn't support filtering by payment.payment_date
+                    # The API's start_date/end_date filter by issued_at, not payment_date
+                    # So we need to fetch all and filter client-side
+                    all_bills = client.get_bills(page_size=500) or []
+                    st.info(f"Total bills fetched from API: {len(all_bills)}")
                     
                     # Analyze date fields in all bills
                     bills_with_payment_obj = 0
@@ -147,29 +144,40 @@ def render_invoices_tab(cfg, env):
                 )
                 client.authenticate()
 
-                # Fetch bills using API date filter for payment send date
-                # The API's start_date/end_date parameters filter by payment.payment_date
-                all_bills = client.get_bills(
-                    start_date=inv_start.isoformat(),
-                    end_date=inv_end.isoformat(),
-                    page_size=cfg['ramp'].get('page_size', 200)
-                ) or []
+                # Fetch ALL bills - API doesn't support filtering by payment.payment_date
+                # The API's start_date/end_date filter by issued_at, not payment_date
+                # So we need to fetch all and filter client-side by payment.payment_date
+                all_bills = client.get_bills(page_size=500) or []
                 
-                if not all_bills:
+                # Filter client-side by payment.payment_date
+                filtered_bills = []
+                for bill in all_bills:
+                    payment_obj = bill.get('payment') or {}
+                    payment_date_str = payment_obj.get('payment_date')
+                    if payment_date_str:
+                        try:
+                            payment_date = datetime.fromisoformat(payment_date_str[:10]).date()
+                            if inv_start <= payment_date <= inv_end:
+                                filtered_bills.append(bill)
+                        except:
+                            pass
+                
+                if not filtered_bills:
                     st.warning(f'No bills found with payment dates between {inv_start} and {inv_end}.')
+                    st.info(f'Total bills in system: {len(all_bills)}')
                     st.stop()
                 
-                st.success(f"Found {len(all_bills)} bills from Ramp")
+                st.success(f"Found {len(filtered_bills)} bills (from {len(all_bills)} total) with payment dates in range")
 
                 # Enrich with vendor external IDs
                 try:
-                    all_bills = enrich_bills_with_vendor_external_ids(all_bills, client)
+                    filtered_bills = enrich_bills_with_vendor_external_ids(filtered_bills, client)
                 except Exception as e:
                     st.warning(f"Could not enrich vendor data: {e}")
 
                 # Transform to Business Central format
-                pi_df = ramp_bills_to_purchase_invoice_lines(all_bills, cfg)
-                gj_df = ramp_bills_to_general_journal(all_bills, cfg)
+                pi_df = ramp_bills_to_purchase_invoice_lines(filtered_bills, cfg)
+                gj_df = ramp_bills_to_general_journal(filtered_bills, cfg)
 
                 # Calculate totals
                 if pi_df is not None and not pi_df.empty:
@@ -180,7 +188,7 @@ def render_invoices_tab(cfg, env):
                     bill_total = 0.0
 
                 # Cache results
-                st.session_state['inv_bills'] = all_bills
+                st.session_state['inv_bills'] = filtered_bills
                 st.session_state['inv_pi_df'] = pi_df
                 st.session_state['inv_gj_df'] = gj_df
 
