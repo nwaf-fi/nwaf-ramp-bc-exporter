@@ -15,14 +15,14 @@ from utils import _write_sync_audit
 
 def render_invoices_tab(cfg, env):
     st.subheader("Purchase Invoice Export (Bills)")
-    st.write("Generate Purchase Invoices CSV from approved Ramp bills in the selected date range.")
+    st.write("Generate Purchase Invoices CSV from approved Ramp bills by payment send date (for bank reconciliation).")
 
     # Local date range inputs for the Invoices panel (defaults to global sidebar dates)
     col_a, col_b = st.columns(2)
     with col_a:
-        inv_start = st.date_input("Invoices: Start Date", value=st.session_state.get('inv_start_date', datetime.now().replace(day=1)), key='invoices_inv_start')
+        inv_start = st.date_input("Payment Send Date: Start", value=st.session_state.get('inv_start_date', datetime.now().replace(day=1)), key='invoices_inv_start')
     with col_b:
-        inv_end = st.date_input("Invoices: End Date", value=st.session_state.get('inv_end_date', datetime.now()), key='invoices_inv_end')
+        inv_end = st.date_input("Payment Send Date: End", value=st.session_state.get('inv_end_date', datetime.now()), key='invoices_inv_end')
 
     include_audit = st.checkbox("Write audit NDJSON (export original bill objects)", value=False, key='invoices_pi_include_audit')
     confirm_mark = st.checkbox("I confirm: mark exported bills as synced (requires confirmation below)", value=False, key='invoices_pi_confirm_mark')
@@ -134,16 +134,16 @@ def render_invoices_tab(cfg, env):
                 )
                 client.authenticate()
 
-                # Filter by invoice date (issued_at) to get bills within the period
+                # Filter by payment send date for bank reconciliation
                 # Use Ramp API datetime format with +00:00 timezone
-                from_issued_date = inv_start.strftime('%Y-%m-%dT00:00:00+00:00')
-                to_issued_date = inv_end.strftime('%Y-%m-%dT23:59:59+00:00')
+                from_payment_date = inv_start.strftime('%Y-%m-%dT00:00:00+00:00')
+                to_payment_date = inv_end.strftime('%Y-%m-%dT23:59:59+00:00')
 
-                # Fetch both OPEN and PAID bills based on invoice date
+                # Fetch both OPEN and PAID bills based on payment date
                 # OPEN bills have scheduled payment dates, PAID bills have actual payment dates
-                # Pass date filters through extra_params (kwargs)
-                bills_open = client.get_bills(status='OPEN', page_size=cfg['ramp'].get('page_size', 200), sync_ready=True, from_issued_date=from_issued_date, to_issued_date=to_issued_date)
-                bills_paid = client.get_bills(status='PAID', page_size=cfg['ramp'].get('page_size', 200), sync_ready=True, from_issued_date=from_issued_date, to_issued_date=to_issued_date)
+                # Use start_date/end_date parameters for payment date filtering
+                bills_open = client.get_bills(status='OPEN', page_size=cfg['ramp'].get('page_size', 200), sync_ready=True, start_date=from_payment_date, end_date=to_payment_date)
+                bills_paid = client.get_bills(status='PAID', page_size=cfg['ramp'].get('page_size', 200), sync_ready=True, start_date=from_payment_date, end_date=to_payment_date)
                 
                 # Merge the two lists
                 bills = (bills_open or []) + (bills_paid or [])

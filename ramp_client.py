@@ -96,10 +96,16 @@ class RampClient:
 
     def get_bills(self, status: Optional[str] = None,
                   from_issued_date: Optional[str] = None, to_issued_date: Optional[str] = None,
+                  start_date: Optional[str] = None, end_date: Optional[str] = None,
                   page_size: int = 200, **extra_params) -> List[Dict]:
         """Fetch bills from Ramp API. Accepts extra query parameters such as
-        `sync_ready=True` to only return bills ready to be synced to ERP."""
-        return self._get_paginated_data("bills", status=status, from_issued_date=from_issued_date, to_issued_date=to_issued_date, page_size=page_size, **extra_params)
+        `sync_ready=True` to only return bills ready to be synced to ERP.
+        
+        Date filtering:
+        - from_issued_date/to_issued_date: Filter by invoice issue date (deprecated for payment reconciliation)
+        - start_date/end_date: Filter by payment send date (preferred for bank reconciliation)
+        """
+        return self._get_paginated_data("bills", status=status, from_issued_date=from_issued_date, to_issued_date=to_issued_date, start_date=start_date, end_date=end_date, page_size=page_size, **extra_params)
 
     def get_reimbursements(self, status: Optional[str] = None,
                           start_date: Optional[str] = None, end_date: Optional[str] = None,
