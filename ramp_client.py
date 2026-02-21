@@ -4,6 +4,16 @@ import json
 import uuid
 from typing import Dict, List, Optional
 from urllib.parse import urljoin
+from datetime import date, datetime, timezone
+
+
+def _date_to_iso(d) -> str:
+    """Convert a date or datetime to ISO 8601 UTC string for Ramp API filters."""
+    if isinstance(d, datetime):
+        return d.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    if isinstance(d, date):
+        return datetime(d.year, d.month, d.day, tzinfo=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return str(d)
 
 class RampClient:
     def _build_endpoint(self, path: str) -> str:
@@ -106,6 +116,54 @@ class RampClient:
         - start_date/end_date: Filter by payment send date (preferred for bank reconciliation)
         """
         return self._get_paginated_data("bills", status=status, from_issued_date=from_issued_date, to_issued_date=to_issued_date, start_date=start_date, end_date=end_date, page_size=page_size, **extra_params)
+
+    def get_all_bills(
+        self,
+        page_size: int = 100,
+        paid_at_after: str = None,   # ISO 8601 e.g. "2026-01-01T00:00:00Z"
+        paid_at_before: str = None,  # ISO 8601 e.g. "2026-01-31T23:59:59Z"
+    ) -> list:
+        """
+        Fetch all bills using cursor-based pagination.
+
+        paid_at_after / paid_at_before are optional server-side pre-filters
+        using the Ramp API's paid_at field. The caller should still apply
+        client-side filtering on payment.payment_date for precision.
+        """
+        all_bills = []
+        next_cursor = None
+        page_num = 0
+
+        while True:
+            page_num += 1
+            params = {"limit": page_size}
+            if next_cursor:
+                params["start"] = next_cursor  # Ramp uses "start" for cursor pagination
+            if paid_at_after:
+                params["paid_at_after"] = paid_at_after
+            if paid_at_before:
+                params["paid_at_before"] = paid_at_before
+
+            url = self._build_endpoint("bills")
+            print(f"🔍 Fetching bills page {page_num} with params: {params}")
+            
+            resp = self.session.get(url, params=params)
+            resp.raise_for_status()
+            response = resp.json()
+            
+            data = response.get("data") or []
+            all_bills.extend(data)
+            print(f"📄 Page {page_num}: fetched {len(data)} items (total so far: {len(all_bills)})")
+
+            page_info = response.get("page") or {}
+            next_cursor = page_info.get("next")
+            if next_cursor:
+                print(f"🔄 Next cursor found, fetching next page...")
+            if not next_cursor:
+                break
+
+        print(f"✅ Retrieved {len(all_bills)} total bills across {page_num} page(s)")
+        return all_bills
 
     def get_reimbursements(self, status: Optional[str] = None,
                           start_date: Optional[str] = None, end_date: Optional[str] = None,
