@@ -13,7 +13,7 @@ from transform import (ramp_bills_to_purchase_invoice_lines,
 
 def render_invoices_tab(cfg, env):
     st.subheader("Purchase Invoice Export (Bills)")
-    st.write("Generate Purchase Invoices CSV from PAID Ramp bills filtered by payment send date (for bank reconciliation).")
+    st.write("Generate Purchase Invoices CSV from Ramp bills filtered by payment send date (for bank reconciliation).")
 
     # Date range inputs
     col_a, col_b = st.columns(2)
@@ -37,7 +37,7 @@ def render_invoices_tab(cfg, env):
 
     # Generate button
     if st.button("Generate Purchase Invoices", key='invoices_generate_btn'):
-        with st.spinner("Fetching paid bills from Ramp..."):
+        with st.spinner("Fetching bills from Ramp..."):
             try:
                 # Initialize client
                 client = RampClient(
@@ -49,23 +49,19 @@ def render_invoices_tab(cfg, env):
                 )
                 client.authenticate()
 
-                # Fetch all PAID bills
+                # Fetch all bills (both OPEN with scheduled payments and PAID)
+                # Bills can be OPEN but have payment.payment_date set (PAYMENT_SCHEDULED)
                 all_bills = client.get_bills(
-                    status='PAID', 
                     page_size=cfg['ramp'].get('page_size', 200), 
                     sync_ready=True
                 ) or []
                 
-                # Filter by payment.payment_date (when payment was sent)
+                # Filter by payment.payment_date (when payment was/will be sent to bank)
                 filtered_bills = []
                 for bill in all_bills:
                     # Payment date is nested: payment.payment_date
                     payment_obj = bill.get('payment') or {}
                     payment_date_str = payment_obj.get('payment_date')
-                    
-                    # Fallback to paid_at if payment_date not available
-                    if not payment_date_str:
-                        payment_date_str = bill.get('paid_at')
                     
                     if payment_date_str:
                         try:
@@ -76,8 +72,8 @@ def render_invoices_tab(cfg, env):
                             continue
                 
                 if not filtered_bills:
-                    st.warning(f'No paid bills found with payment dates between {inv_start} and {inv_end}.')
-                    st.info(f'Total PAID bills in system: {len(all_bills)}')
+                    st.warning(f'No bills found with payment dates between {inv_start} and {inv_end}.')
+                    st.info(f'Total bills in system: {len(all_bills)}')
                     st.stop()
                 
                 st.success(f"Found {len(filtered_bills)} paid bills (from {len(all_bills)} total)")
