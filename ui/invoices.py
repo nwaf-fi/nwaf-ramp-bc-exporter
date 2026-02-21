@@ -62,15 +62,15 @@ def render_invoices_tab(cfg, env):
                 bills = []
                 bills_without_date = 0
                 for b in all_bills:
-                    # Use paid_at for PAID bills (this is when payment actually went through)
-                    payment_date_str = b.get('paid_at')
+                    # Try payment_date first (scheduled/actual payment date), then paid_at (when payment was marked paid)
+                    payment_date_str = b.get('payment_date') or b.get('paid_at')
                     if payment_date_str:
                         try:
                             payment_dt = datetime.fromisoformat(payment_date_str[:10])
                             if from_payment_dt <= payment_dt.date() <= to_payment_dt:
                                 bills.append(b)
                         except Exception as e:
-                            st.warning(f"Error parsing paid_at '{payment_date_str}': {e}")
+                            st.warning(f"Error parsing date '{payment_date_str}': {e}")
                     else:
                         bills_without_date += 1
                 
@@ -174,11 +174,11 @@ def render_invoices_tab(cfg, env):
                 
                 all_bills = bills_paid or []
                 
-                # Filter client-side by paid_at date
+                # Filter client-side by payment date
                 bills = []
                 for b in all_bills:
-                    # Use paid_at for PAID bills (this is when payment actually went through)
-                    payment_date_str = b.get('paid_at')
+                    # Try payment_date first (scheduled/actual payment date), then paid_at (when payment was marked paid)
+                    payment_date_str = b.get('payment_date') or b.get('paid_at')
                     if payment_date_str:
                         try:
                             payment_dt = datetime.fromisoformat(payment_date_str[:10])
