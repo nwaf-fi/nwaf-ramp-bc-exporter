@@ -535,7 +535,9 @@ class RampClient:
 
         results: List[Dict] = []
         next_cursor = None
+        page_num = 0
         while True:
+            page_num += 1
             if next_cursor:
                 params["cursor"] = next_cursor
             resp = self.session.get(url, params=params)
@@ -543,9 +545,12 @@ class RampClient:
             data = resp.json()
             items = data.get("data") or []
             results.extend(items)
+            print(f"📄 Page {page_num}: fetched {len(items)} items (total so far: {len(results)})")
             next_cursor = data.get("next") or data.get("next_cursor")
+            if next_cursor:
+                print(f"🔄 Next cursor found, fetching next page...")
             if not next_cursor:
                 break
         
-        print(f"✅ Retrieved {len(results)} items from {endpoint}")
+        print(f"✅ Retrieved {len(results)} total items from {endpoint} across {page_num} page(s)")
         return results

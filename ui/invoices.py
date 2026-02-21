@@ -38,8 +38,8 @@ def render_invoices_tab(cfg, env):
                     
                     # Fetch ALL bills - API doesn't support filtering by payment.payment_date
                     # The API's start_date/end_date filter by issued_at, not payment_date
-                    # So we need to fetch all and filter client-side
-                    all_bills = client.get_bills(page_size=500) or []
+                    # So we need to fetch all and filter client-side (page_size max is 100)
+                    all_bills = client.get_bills(page_size=100) or []
                     st.info(f"Total bills fetched from API: {len(all_bills)}")
                     
                     # Analyze date fields in all bills
@@ -146,8 +146,8 @@ def render_invoices_tab(cfg, env):
 
                 # Fetch ALL bills - API doesn't support filtering by payment.payment_date
                 # The API's start_date/end_date filter by issued_at, not payment_date
-                # So we need to fetch all and filter client-side by payment.payment_date
-                all_bills = client.get_bills(page_size=500) or []
+                # So we need to fetch all and filter client-side (page_size max is 100)
+                all_bills = client.get_bills(page_size=100) or []
                 
                 # Filter client-side by payment.payment_date
                 filtered_bills = []
