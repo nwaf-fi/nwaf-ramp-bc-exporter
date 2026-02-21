@@ -120,15 +120,16 @@ class RampClient:
     def get_all_bills(
         self,
         page_size: int = 100,
-        paid_at_after: str = None,   # ISO 8601 e.g. "2026-01-01T00:00:00Z"
-        paid_at_before: str = None,  # ISO 8601 e.g. "2026-01-31T23:59:59Z"
+        from_payment_date: str = None,  # ISO 8601 date e.g. "2026-01-01"
+        to_payment_date: str = None,    # ISO 8601 date e.g. "2026-01-31"
     ) -> list:
         """
-        Fetch all bills using cursor-based pagination.
+        Fetch all bills using cursor-based pagination with optional server-side
+        payment date filtering.
 
-        paid_at_after / paid_at_before are optional server-side pre-filters
-        using the Ramp API's paid_at field. The caller should still apply
-        client-side filtering on payment.payment_date for precision.
+        Note: from_payment_date / to_payment_date are not supported for card
+        payments per Ramp API docs. Always apply a client-side payment.payment_date
+        filter after calling this method to catch those cases.
         """
         all_bills = []
         next_cursor = None
@@ -139,10 +140,10 @@ class RampClient:
             params = {"limit": page_size}
             if next_cursor:
                 params["start"] = next_cursor  # Ramp uses "start" for cursor pagination
-            if paid_at_after:
-                params["paid_at_after"] = paid_at_after
-            if paid_at_before:
-                params["paid_at_before"] = paid_at_before
+            if from_payment_date:
+                params["from_payment_date"] = from_payment_date
+            if to_payment_date:
+                params["to_payment_date"] = to_payment_date
 
             url = self._build_endpoint("bills")
             print(f"🔍 Fetching bills page {page_num} with params: {params}")
