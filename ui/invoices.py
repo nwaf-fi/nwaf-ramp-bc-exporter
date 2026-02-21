@@ -179,7 +179,8 @@ def render_invoices_tab(cfg, env):
 
                 # Calculate totals
                 if pi_df is not None and not pi_df.empty:
-                    bill_count = len(pi_df['Document No.'].unique())
+                    # Purchase Invoice format uses 'Vendor Invoice No.' not 'Document No.'
+                    bill_count = len(pi_df['Vendor Invoice No.'].unique())
                     bill_total = pi_df['Amount'].sum()
                 else:
                     bill_count = 0
