@@ -39,10 +39,29 @@ def render_invoices_tab(cfg, env):
                     all_bills = client.get_bills(page_size=cfg['ramp'].get('page_size', 200)) or []
                     st.info(f"Total bills fetched: {len(all_bills)}")
                     
+                    # Analyze date fields in all bills
+                    bills_with_payment_obj = 0
+                    bills_with_payment_date = 0
+                    bills_with_issued_at = 0
+                    bills_with_due_at = 0
+                    bills_with_paid_at = 0
+                    
                     filtered = []
                     for bill in all_bills:
-                        payment_obj = bill.get('payment') or {}
-                        payment_date_str = payment_obj.get('payment_date')
+                        payment_obj = bill.get('payment')
+                        if payment_obj:
+                            bills_with_payment_obj += 1
+                            if payment_obj.get('payment_date'):
+                                bills_with_payment_date += 1
+                        
+                        if bill.get('issued_at'):
+                            bills_with_issued_at += 1
+                        if bill.get('due_at'):
+                            bills_with_due_at += 1
+                        if bill.get('paid_at'):
+                            bills_with_paid_at += 1
+                        
+                        payment_date_str = payment_obj.get('payment_date') if payment_obj else None
                         
                         if payment_date_str:
                             try:
@@ -52,10 +71,33 @@ def render_invoices_tab(cfg, env):
                             except:
                                 pass
                     
+                    # Show date field statistics
+                    st.write("**Date field analysis:**")
+                    st.write(f"- Bills with payment object: {bills_with_payment_obj}")
+                    st.write(f"- Bills with payment.payment_date: {bills_with_payment_date}")
+                    st.write(f"- Bills with issued_at: {bills_with_issued_at}")
+                    st.write(f"- Bills with due_at: {bills_with_due_at}")
+                    st.write(f"- Bills with paid_at: {bills_with_paid_at}")
+                    
                     st.success(f"✅ Bills with payment_date between {debug_start} and {debug_end}: **{len(filtered)}**")
                     
+                    # Show sample of first few bills to inspect their structure
+                    if all_bills:
+                        with st.expander("Sample bill structure (first bill)"):
+                            sample = all_bills[0]
+                            st.json({
+                                'id': sample.get('id'),
+                                'invoice_number': sample.get('invoice_number'),
+                                'status': sample.get('status'),
+                                'issued_at': sample.get('issued_at'),
+                                'due_at': sample.get('due_at'),
+                                'paid_at': sample.get('paid_at'),
+                                'payment': sample.get('payment'),
+                                'amount': sample.get('amount')
+                            })
+                    
                     if filtered and len(filtered) <= 20:
-                        st.write("Sample bills:")
+                        st.write("**Bills matching date range:**")
                         for bill in filtered[:20]:
                             payment_obj = bill.get('payment') or {}
                             payment_date_str = payment_obj.get('payment_date')
@@ -63,6 +105,8 @@ def render_invoices_tab(cfg, env):
                     
                 except Exception as e:
                     st.error(f"Error: {e}")
+                    import traceback
+                    st.code(traceback.format_exc())
 
     # Date range inputs
     col_a, col_b = st.columns(2)
