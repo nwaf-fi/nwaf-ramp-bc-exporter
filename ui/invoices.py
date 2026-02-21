@@ -36,7 +36,7 @@ def render_invoices_tab(cfg, env):
                     )
                     client.authenticate()
                     
-                    all_bills = client.get_bills(page_size=cfg['ramp'].get('page_size', 200), sync_ready=True) or []
+                    all_bills = client.get_bills(page_size=cfg['ramp'].get('page_size', 200)) or []
                     st.info(f"Total bills fetched: {len(all_bills)}")
                     
                     filtered = []
@@ -101,8 +101,7 @@ def render_invoices_tab(cfg, env):
                 # Fetch all bills (both OPEN with scheduled payments and PAID)
                 # Bills can be OPEN but have payment.payment_date set (PAYMENT_SCHEDULED)
                 all_bills = client.get_bills(
-                    page_size=cfg['ramp'].get('page_size', 200), 
-                    sync_ready=True
+                    page_size=cfg['ramp'].get('page_size', 200)
                 ) or []
                 
                 # Filter by payment.payment_date (when payment was/will be sent to bank)
