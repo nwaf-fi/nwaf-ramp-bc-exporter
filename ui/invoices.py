@@ -84,12 +84,15 @@ def render_invoices_tab(cfg, env):
                     
                     # Show sample payment dates from fetched bills
                     if all_bills:
-                        st.write("**Sample payment_date values from first 10 bills:**")
+                        st.write("**Sample date values from first 10 bills (all date fields):**")
                         for i, bill in enumerate(all_bills[:10]):
-                            payment_obj = bill.get('payment')
-                            if payment_obj:
-                                pd = payment_obj.get('payment_date', 'N/A')
-                                st.write(f"{i+1}. Invoice #{bill.get('invoice_number', 'N/A')}: payment_date={pd}")
+                            payment_obj = bill.get('payment') or {}
+                            st.write(f"{i+1}. Invoice #{bill.get('invoice_number', 'N/A')}:")
+                            st.write(f"   - issued_at: {bill.get('issued_at', 'N/A')[:10] if bill.get('issued_at') else 'N/A'}")
+                            st.write(f"   - due_at: {bill.get('due_at', 'N/A')[:10] if bill.get('due_at') else 'N/A'}")
+                            st.write(f"   - paid_at: {bill.get('paid_at', 'N/A')[:10] if bill.get('paid_at') else 'N/A'}")
+                            st.write(f"   - payment.payment_date: {payment_obj.get('payment_date', 'N/A')[:10] if payment_obj.get('payment_date') else 'N/A'}")
+                            st.write(f"   - payment.effective_date: {payment_obj.get('effective_date', 'N/A')[:10] if payment_obj.get('effective_date') else 'N/A'}")
                     
                     if filtered and len(filtered) <= 20:
                         st.write("**Bills matching date range:**")
