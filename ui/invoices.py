@@ -75,11 +75,17 @@ def render_invoices_tab(cfg, env):
                         bills_without_date += 1
                 
                 if bills_without_date:
-                    st.warning(f"{bills_without_date} bills have no payment date fields (payment_date, paid_at, or settled_at)")
+                    st.warning(f"{bills_without_date} PAID bills have no paid_at date (may be processing)")
                 
                 total_bills = len(bills) if isinstance(bills, list) else 0
+                st.success(f"Filtered to {total_bills} bills with paid_at dates in range {from_payment_dt} to {to_payment_dt}")
+                
                 if not bills:
-                    st.info('No open or paid bills found for the specified period.')
+                    st.info('No paid bills found with paid_at dates in the specified period.')
+                    if bills_without_date == len(all_bills):
+                        st.error("All bills are missing paid_at dates! This shouldn't happen for PAID bills.")
+                    elif len(all_bills) > 0:
+                        st.info(f"Note: {len(all_bills)} total PAID bills exist, but none have paid_at dates within your selected range.")
                 else:
                     st.success(f"Retrieved {total_bills} bills (preview)")
 
