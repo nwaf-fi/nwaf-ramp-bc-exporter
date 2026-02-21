@@ -180,10 +180,12 @@ def render_invoices_tab(cfg, env):
                 # Calculate totals
                 if pi_df is not None and not pi_df.empty:
                     # Purchase Invoice format uses 'Vendor Invoice No.' not 'Document No.'
-                    bill_count = len(pi_df['Vendor Invoice No.'].unique())
+                    unique_bills = len(pi_df['Vendor Invoice No.'].unique())
+                    total_rows = len(pi_df)
                     bill_total = pi_df['Amount'].sum()
                 else:
-                    bill_count = 0
+                    unique_bills = 0
+                    total_rows = 0
                     bill_total = 0.0
 
                 # Cache results
@@ -192,7 +194,7 @@ def render_invoices_tab(cfg, env):
                 st.session_state['inv_gj_df'] = gj_df
 
                 # Display summary
-                st.write(f"**Bills:** {bill_count} | **Total Amount:** ${bill_total:,.2f}")
+                st.write(f"**Unique Bills:** {unique_bills} | **Total Rows:** {total_rows} | **Total Amount:** ${bill_total:,.2f}")
 
                 # Preview
                 st.subheader("Purchase Invoice Preview (first 10)")
