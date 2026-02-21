@@ -25,7 +25,7 @@ def render_invoices_tab(cfg, env):
             debug_end = st.date_input("Test End Date", value=datetime(2026, 1, 31).date(), key='debug_end')
         
         if st.button("Count Bills in Range", key='debug_count_btn'):
-            with st.spinner("Fetching bills from Ramp (paginating all pages, filtering by payment date)..."):
+            with st.spinner("Fetching all bills from Ramp (paginating all pages)..."):
                 try:
                     client = RampClient(
                         base_url=cfg['ramp']['base_url'],
@@ -36,13 +36,10 @@ def render_invoices_tab(cfg, env):
                     )
                     client.authenticate()
                     
-                    # Fetch ALL bills using pagination with payment date filter
-                    all_bills = client.get_all_bills(
-                        page_size=100,
-                        from_payment_date=_date_to_iso(debug_start),
-                        to_payment_date=_date_to_iso(debug_end),
-                    ) or []
-                    st.info(f"Total bills fetched from API (paginated, payment_date filtered): {len(all_bills)}")
+                    # Fetch ALL bills using pagination (no API date filter available)
+                    # Must filter client-side by payment.payment_date
+                    all_bills = client.get_all_bills(page_size=100) or []
+                    st.info(f"Total bills fetched from API (all bills, paginated): {len(all_bills)}")
                     
                     # Analyze date fields in all bills
                     bills_with_payment_obj = 0
@@ -134,7 +131,7 @@ def render_invoices_tab(cfg, env):
 
     # Generate button
     if st.button("Generate Purchase Invoices", key='invoices_generate_btn'):
-        with st.spinner("Fetching bills from Ramp (paginating all pages, filtering by payment date)..."):
+        with st.spinner("Fetching all bills from Ramp (paginating all pages)..."):
             try:
                 # Initialize client
                 client = RampClient(
@@ -146,12 +143,9 @@ def render_invoices_tab(cfg, env):
                 )
                 client.authenticate()
 
-                # Fetch ALL bills using pagination with payment date filter
-                all_bills = client.get_all_bills(
-                    page_size=100,
-                    from_payment_date=_date_to_iso(inv_start),
-                    to_payment_date=_date_to_iso(inv_end),
-                ) or []
+                # Fetch ALL bills using pagination (no API date filter available)
+                # Must filter client-side by payment.payment_date
+                all_bills = client.get_all_bills(page_size=100) or []
                 
                 # Filter client-side by payment.payment_date
                 filtered_bills = []
