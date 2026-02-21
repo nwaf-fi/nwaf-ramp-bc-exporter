@@ -215,9 +215,8 @@ def ramp_bills_to_bc_rows(bills: List[Dict[str, Any]], cfg: Dict[str, Any]) -> p
         
         # For bank reconciliation: use payment date for posting date
         # and bill_date (invoice date) for document date
-        # Payment date is nested in payment.payment_date for scheduled payments
-        payment_info = bill.get('payment') or {}
-        paid_date = bill.get('paid_at') or payment_info.get('payment_date') or bill.get('settled_at')
+        # payment_date is a direct field on the bill object per Ramp API docs
+        paid_date = bill.get('payment_date') or bill.get('paid_at') or bill.get('settled_at')
         bill_date = bill.get('bill_date') or bill.get('issued_at') or bill.get('created_at')
         
         # Posting date = payment date (for bank reconciliation)
@@ -804,9 +803,8 @@ def ramp_bills_to_purchase_invoice_lines(bills: List[Dict[str, Any]], cfg: Dict[
         vendor_invoice_no = bill.get('vendor_invoice_number') or bill.get('invoice_number') or bill.get('document_number') or bill.get('id')
 
         # Date extraction: for Purchase Invoice, use bill_date (invoice date) for both posting and document dates
-        # Payment date is nested in payment.payment_date for scheduled payments
-        payment_info = bill.get('payment') or {}
-        paid_date = bill.get('paid_at') or payment_info.get('payment_date') or bill.get('settled_at')
+        # payment_date is a direct field on the bill object per Ramp API docs
+        paid_date = bill.get('payment_date') or bill.get('paid_at') or bill.get('settled_at')
         bill_date = bill.get('bill_date') or bill.get('issued_at') or bill.get('created_at')
         
         # Purchase Invoice: posting date = document date = invoice date (bill_date)
@@ -961,9 +959,8 @@ def ramp_bills_to_general_journal(bills: List[Dict[str, Any]], cfg: Dict[str, An
         # Date extraction:
         # - bill_date: invoice date (for Expense→A/P entry)
         # - paid_date: scheduled payment date or paid date (for A/P→Bank entry)
-        # Payment date is nested in payment.payment_date for scheduled payments
-        payment_info = bill.get('payment') or {}
-        paid_date = bill.get('paid_at') or payment_info.get('payment_date') or bill.get('settled_at')
+        # payment_date is a direct field on the bill object per Ramp API docs
+        paid_date = bill.get('payment_date') or bill.get('paid_at') or bill.get('settled_at')
         bill_date = bill.get('bill_date') or bill.get('issued_at') or bill.get('created_at')
         
         # Invoice entry: posting date = document date = invoice date

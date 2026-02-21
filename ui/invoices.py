@@ -165,11 +165,11 @@ def render_invoices_tab(cfg, env):
                 # Filter client-side by payment date
                 bills = []
                 for b in all_bills:
-                    payment_info = b.get('payment') or {}
-                    paid_date = b.get('paid_at') or payment_info.get('payment_date') or b.get('settled_at')
-                    if paid_date:
+                    # payment_date is a direct field on the bill object per Ramp API docs
+                    payment_date_str = b.get('payment_date')
+                    if payment_date_str:
                         try:
-                            payment_dt = datetime.fromisoformat(paid_date[:10])
+                            payment_dt = datetime.fromisoformat(payment_date_str[:10])
                             if from_payment_dt <= payment_dt.date() <= to_payment_dt:
                                 bills.append(b)
                         except:
