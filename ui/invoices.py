@@ -40,19 +40,33 @@ def render_invoices_tab(cfg, env):
                 )
                 client.authenticate()
 
-                # Filter by invoice date (issued_at) to get bills within the period
-                # Use Ramp API datetime format with +00:00 timezone
-                from_issued_date = inv_start.strftime('%Y-%m-%dT00:00:00+00:00')
-                to_issued_date = inv_end.strftime('%Y-%m-%dT23:59:59+00:00')
+                # Filter by payment send date for bank reconciliation
+                # Note: Ramp API's start_date/end_date filter by invoice date, not payment date
+                # So we fetch all sync-ready bills and filter client-side by payment date
+                from_payment_dt = inv_start
+                to_payment_dt = inv_end
 
-                # Fetch both OPEN and PAID bills based on invoice date
+                # Fetch both OPEN and PAID bills (sync_ready=True ensures they're ready for export)
                 # OPEN bills have scheduled payment dates, PAID bills have actual payment dates
-                # Pass date filters through extra_params (kwargs)
-                bills_open = client.get_bills(status='OPEN', page_size=cfg['ramp'].get('page_size', 200), sync_ready=True, from_issued_date=from_issued_date, to_issued_date=to_issued_date)
-                bills_paid = client.get_bills(status='PAID', page_size=cfg['ramp'].get('page_size', 200), sync_ready=True, from_issued_date=from_issued_date, to_issued_date=to_issued_date)
+                bills_open = client.get_bills(status='OPEN', page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
+                bills_paid = client.get_bills(status='PAID', page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
                 
                 # Merge the two lists
-                bills = (bills_open or []) + (bills_paid or [])
+                all_bills = (bills_open or []) + (bills_paid or [])
+                
+                # Filter client-side by payment date
+                bills = []
+                for b in all_bills:
+                    payment_info = b.get('payment') or {}
+                    paid_date = b.get('paid_at') or payment_info.get('payment_date') or b.get('settled_at')
+                    if paid_date:
+                        try:
+                            payment_dt = datetime.fromisoformat(paid_date[:10])
+                            if from_payment_dt <= payment_dt.date() <= to_payment_dt:
+                                bills.append(b)
+                        except:
+                            pass
+                
                 total_bills = len(bills) if isinstance(bills, list) else 0
                 if not bills:
                     st.info('No open or paid bills found for the specified period.')
@@ -135,15 +149,31 @@ def render_invoices_tab(cfg, env):
                 client.authenticate()
 
                 # Filter by payment send date for bank reconciliation
-                # Use Ramp API datetime format with +00:00 timezone
-                from_payment_date = inv_start.strftime('%Y-%m-%dT00:00:00+00:00')
-                to_payment_date = inv_end.strftime('%Y-%m-%dT23:59:59+00:00')
+                # Note: Ramp API's start_date/end_date filter by invoice date, not payment date
+                # So we fetch all sync-ready bills and filter client-side by payment date
+                from_payment_dt = inv_start
+                to_payment_dt = inv_end
 
-                # Fetch both OPEN and PAID bills based on payment date
+                # Fetch both OPEN and PAID bills (sync_ready=True ensures they're ready for export)
                 # OPEN bills have scheduled payment dates, PAID bills have actual payment dates
-                # Use start_date/end_date parameters for payment date filtering
-                bills_open = client.get_bills(status='OPEN', page_size=cfg['ramp'].get('page_size', 200), sync_ready=True, start_date=from_payment_date, end_date=to_payment_date)
-                bills_paid = client.get_bills(status='PAID', page_size=cfg['ramp'].get('page_size', 200), sync_ready=True, start_date=from_payment_date, end_date=to_payment_date)
+                bills_open = client.get_bills(status='OPEN', page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
+                bills_paid = client.get_bills(status='PAID', page_size=cfg['ramp'].get('page_size', 200), sync_ready=True)
+                
+                # Merge the two lists
+                all_bills = (bills_open or []) + (bills_paid or [])
+                
+                # Filter client-side by payment date
+                bills = []
+                for b in all_bills:
+                    payment_info = b.get('payment') or {}
+                    paid_date = b.get('paid_at') or payment_info.get('payment_date') or b.get('settled_at')
+                    if paid_date:
+                        try:
+                            payment_dt = datetime.fromisoformat(paid_date[:10])
+                            if from_payment_dt <= payment_dt.date() <= to_payment_dt:
+                                bills.append(b)
+                        except:
+                            pass
                 
                 # Merge the two lists
                 bills = (bills_open or []) + (bills_paid or [])
