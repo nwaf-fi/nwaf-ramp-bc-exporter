@@ -36,7 +36,8 @@ def render_invoices_tab(cfg, env):
                     )
                     client.authenticate()
                     
-                    all_bills = client.get_bills(page_size=cfg['ramp'].get('page_size', 200)) or []
+                    # Fetch more bills - increase page_size significantly
+                    all_bills = client.get_bills(page_size=500) or []
                     st.info(f"Total bills fetched: {len(all_bills)}")
                     
                     # Analyze date fields in all bills
@@ -81,20 +82,14 @@ def render_invoices_tab(cfg, env):
                     
                     st.success(f"✅ Bills with payment_date between {debug_start} and {debug_end}: **{len(filtered)}**")
                     
-                    # Show sample of first few bills to inspect their structure
+                    # Show sample payment dates from fetched bills
                     if all_bills:
-                        with st.expander("Sample bill structure (first bill)"):
-                            sample = all_bills[0]
-                            st.json({
-                                'id': sample.get('id'),
-                                'invoice_number': sample.get('invoice_number'),
-                                'status': sample.get('status'),
-                                'issued_at': sample.get('issued_at'),
-                                'due_at': sample.get('due_at'),
-                                'paid_at': sample.get('paid_at'),
-                                'payment': sample.get('payment'),
-                                'amount': sample.get('amount')
-                            })
+                        st.write("**Sample payment_date values from first 10 bills:**")
+                        for i, bill in enumerate(all_bills[:10]):
+                            payment_obj = bill.get('payment')
+                            if payment_obj:
+                                pd = payment_obj.get('payment_date', 'N/A')
+                                st.write(f"{i+1}. Invoice #{bill.get('invoice_number', 'N/A')}: payment_date={pd}")
                     
                     if filtered and len(filtered) <= 20:
                         st.write("**Bills matching date range:**")
