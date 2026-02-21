@@ -55,24 +55,31 @@ def render_invoices_tab(cfg, env):
                 all_bills = (bills_open or []) + (bills_paid or [])
                 st.info(f"Fetched {len(all_bills)} total bills from API")
                 
-                # Filter client-side by payment date
+                # Debug: show available date fields from first bill
+                if all_bills:
+                    sample = all_bills[0]
+                    date_fields = {k: v for k, v in sample.items() if 'date' in k.lower() or 'at' in k.lower()}
+                    with st.expander("Debug: Available date fields on first bill", expanded=False):
+                        st.json(date_fields)
+                
+                # Filter client-side by payment date with fallbacks
                 bills = []
-                bills_without_payment_date = 0
+                bills_without_date = 0
                 for b in all_bills:
-                    # payment_date is a direct field on the bill object per Ramp API docs
-                    payment_date_str = b.get('payment_date')
+                    # Try payment_date first, then fallback to other date fields
+                    payment_date_str = b.get('payment_date') or b.get('paid_at') or b.get('settled_at')
                     if payment_date_str:
                         try:
                             payment_dt = datetime.fromisoformat(payment_date_str[:10])
                             if from_payment_dt <= payment_dt.date() <= to_payment_dt:
                                 bills.append(b)
                         except Exception as e:
-                            st.warning(f"Error parsing payment_date '{payment_date_str}': {e}")
+                            st.warning(f"Error parsing date '{payment_date_str}': {e}")
                     else:
-                        bills_without_payment_date += 1
+                        bills_without_date += 1
                 
-                if bills_without_payment_date:
-                    st.warning(f"{bills_without_payment_date} bills have no payment_date field")
+                if bills_without_date:
+                    st.warning(f"{bills_without_date} bills have no payment date fields (payment_date, paid_at, or settled_at)")
                 
                 total_bills = len(bills) if isinstance(bills, list) else 0
                 if not bills:
