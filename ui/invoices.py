@@ -39,8 +39,8 @@ def render_invoices_tab(cfg, env):
                     # Fetch ALL bills using pagination with payment date filter
                     all_bills = client.get_all_bills(
                         page_size=100,
-                        from_payment_date=debug_start.isoformat(),
-                        to_payment_date=debug_end.isoformat(),
+                        from_payment_date=_date_to_iso(debug_start),
+                        to_payment_date=_date_to_iso(debug_end),
                     ) or []
                     st.info(f"Total bills fetched from API (paginated, payment_date filtered): {len(all_bills)}")
                     
@@ -149,8 +149,8 @@ def render_invoices_tab(cfg, env):
                 # Fetch ALL bills using pagination with payment date filter
                 all_bills = client.get_all_bills(
                     page_size=100,
-                    from_payment_date=inv_start.isoformat(),
-                    to_payment_date=inv_end.isoformat(),
+                    from_payment_date=_date_to_iso(inv_start),
+                    to_payment_date=_date_to_iso(inv_end),
                 ) or []
                 
                 # Filter client-side by payment.payment_date
