@@ -83,9 +83,12 @@ else:
     )
 
 # -------------------------
-# Path setup
+# Path setup — ensure repo root is in sys.path so utils, ramp_client,
+# transform, ui.*, lib.* and auth.* can all be resolved.
 # -------------------------
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+_repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
 
 # -------------------------
 # Internal imports

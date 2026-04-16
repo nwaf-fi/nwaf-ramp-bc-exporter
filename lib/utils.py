@@ -38,14 +38,10 @@ def load_config(config_path: str = 'config.toml') -> Dict[str, Any]:
     Loads configuration settings from a TOML file.
     """
     try:
-        with open(config_path, 'rb' if _use_tomllib else 'r') as f:
-            content = f.read()
-            if _use_tomllib:
-                # tomllib expects bytes
-                config = _tomllib.loads(content)
-            else:
-                # third-party toml expects text
-                config = _tomllib.loads(content.decode('utf-8'))
+        # tomllib.load() requires binary mode; third-party toml.load() requires text mode
+        mode = 'rb' if _use_tomllib else 'r'
+        with open(config_path, mode) as f:
+            config = _tomllib.load(f)
         return config
     except FileNotFoundError:
         raise FileNotFoundError(f"Configuration file not found at: {config_path}")
