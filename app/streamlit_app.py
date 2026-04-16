@@ -46,10 +46,41 @@ components.html(
 )
 
 # -------------------------
-# Authentication
+# Authentication (safe fallback when app secrets are missing)
 # -------------------------
 from auth.azure_auth import ensure_authenticated, REDIRECT_URI
-user_name, user_email = ensure_authenticated()
+
+# Prefer environment variables (.env) when present, otherwise Streamlit secrets
+def _get_secret(key):
+    # Check environment first
+    v = os.environ.get(key)
+    if v:
+        return v
+    # Then Streamlit secrets
+    try:
+        return st.secrets.get(key)
+    except Exception:
+        return None
+
+# Required Azure secrets for in-app auth
+_azure_client = _get_secret('AZURE_CLIENT_ID')
+_azure_tenant = _get_secret('AZURE_TENANT_ID')
+_azure_redirect = _get_secret('AZURE_REDIRECT_URI')
+
+if _azure_client and _azure_tenant and _azure_redirect:
+    # Normal authenticated flow
+    try:
+        user_name, user_email = ensure_authenticated()
+    except Exception as e:
+        # If auth fails, show a warning but keep the app running for local/manual flows
+        st.warning('Authentication failed; app will continue in limited mode. Check app secrets and logs.')
+        user_name, user_email = (None, None)
+else:
+    # Show a clear instruction in the UI for admins to add required secrets
+    user_name, user_email = (None, None)
+    st.warning(
+        "Authentication is not configured. Add `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_REDIRECT_URI` to the app's Streamlit Secrets (Settings → Secrets) or provide them via a local `.env` file."
+    )
 
 # -------------------------
 # Path setup
