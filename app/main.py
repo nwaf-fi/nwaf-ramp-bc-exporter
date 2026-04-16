@@ -1,11 +1,13 @@
-
-import warnings
-warnings.warn(
-    "Importing main.py directly is deprecated; use app.main instead.",
-    DeprecationWarning,
-    stacklevel=2,
-)
-from app.main import *
+import argparse
+from datetime import datetime, timedelta
+from typing import Dict
+import pandas as pd
+from utils import load_env, load_config
+from ramp_client import RampClient
+from transform import (ramp_to_bc_rows, ramp_bills_to_bc_rows, 
+                      ramp_reimbursements_to_bc_rows, ramp_cashbacks_to_bc_rows,
+                      ramp_statements_to_bc_rows)
+from bc_export import export
 
 def get_date_ranges(period_type: str) -> Dict[str, tuple]:
     """
@@ -273,6 +275,46 @@ def main():
                     
         if synced_count > 0:
             print(f"✅ [TESTING] Would have marked {synced_count} transactions as synced to Business Central")
+
+    # Mark bills as synced if requested and accounting scope is available
+    if args.mark_synced and available_endpoints.get('accounting', False) and 'bills' in types_to_process:
+        print("🔄 Marking bills as synced to Business Central...")
+        print("⚠️  TESTING MODE: No actual changes will be made to Ramp data unless the client was configured with enable_sync=True")
+        synced_bills = 0
+        try:
+            # Use the same date range used for bills when fetching earlier
+            start_date, end_date = date_ranges.get('bills', (None, None))
+            page_size = cfg['ramp'].get('page_size', 200)
+
+            # Only retrieve bills that Ramp has flagged as ready to sync
+            bills_to_sync = client.get_bills(status=None, start_date=start_date, end_date=end_date, page_size=page_size, sync_ready=True)
+
+            if not bills_to_sync:
+                print("⚠️ No bills marked sync_ready=true found for the specified period")
+            else:
+                sync_ref = f"BC_EXPORT_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                successful_syncs = []
+                for bill in bills_to_sync:
+                    bid = bill.get('id')
+                    if bid:
+                        obj = {'id': bid}
+                        obj['reference_id'] = sync_ref
+                        successful_syncs.append(obj)
+
+                if successful_syncs:
+                    dry_run = not getattr(client, 'enable_sync', False)
+                    ok, info = client.post_accounting_syncs(successful_syncs=successful_syncs, failed_syncs=[], sync_type='BILL_SYNC', dry_run=dry_run)
+                    if ok:
+                        synced_bills = len(successful_syncs)
+                        if dry_run:
+                            print(f"✅ [DRY RUN] Prepared {synced_bills} bill(s) for sync (preview shown above)")
+                        else:
+                            print(f"✅ Marked {synced_bills} bill(s) as synced to Business Central")
+                    else:
+                        print(f"❌ Failed to post bill syncs: {info}")
+
+        except Exception as e:
+            print(f"❌ Error marking bills as synced: {e}")
 
 if __name__ == '__main__':
     main()

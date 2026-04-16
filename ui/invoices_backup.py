@@ -21,66 +21,13 @@ def render_invoices_tab(cfg, env):
     col_a, col_b = st.columns(2)
     with col_a:
         inv_start = st.date_input("Payment Send Date: Start", value=st.session_state.get('inv_start_date', datetime.now().replace(day=1)), key='invoices_inv_start')
-    with col_b:
-        inv_end = st.date_input("Payment Send Date: End", value=st.session_state.get('inv_end_date', datetime.now()), key='invoices_inv_end')
-
-    include_audit = st.checkbox("Write audit NDJSON (export original bill objects)", value=False, key='invoices_pi_include_audit')
-    confirm_mark = st.checkbox("I confirm: mark exported bills as synced (requires confirmation below)", value=False, key='invoices_pi_confirm_mark')
-
-    # Preview button
-    if st.button("Preview Purchase Invoices for date range", key='invoices_preview_pi_btn'):
-        with st.spinner("Fetching paid bills..."):
-            try:
-                client = RampClient(
-                    base_url=cfg['ramp']['base_url'],
-                    token_url=cfg['ramp']['token_url'],
-                    client_id=env['RAMP_CLIENT_ID'],
-                    client_secret=env['RAMP_CLIENT_SECRET'],
-                    enable_sync=False
-                )
-                client.authenticate()
-
-                # Fetch all PAID bills (no API date filter - we'll filter client-side)
-                all_bills = client.get_bills(status='PAID', page_size=cfg['ramp'].get('page_size', 200), sync_ready=True) or []
-                
-                # Filter by payment.payment_date (when payment was sent to bank)
-                bills = []
-                for bill in all_bills:
-                    payment_obj = bill.get('payment') or {}
-                    payment_date_str = payment_obj.get('payment_date') or bill.get('paid_at')
-                    
-                    if payment_date_str:
-                        try:
-                            payment_date = datetime.fromisoformat(payment_date_str[:10]).date()
-                            if inv_start <= payment_date <= inv_end:
-                                bills.append(bill)
-                        except:
-                            pass
-                
-                if not bills:
-                    st.info(f'No paid bills found with payment dates between {inv_start} and {inv_end}.')
-                    st.info(f'(Checked {len(all_bills)} total PAID bills)')
-                else:
-                    bills_preview = bills
-                    st.success(f"Retrieved {len(bills_preview)} paid bills for preview")
-
-                    # Enrich bills with vendor external ids
-                    try:
-                        bills_preview = enrich_bills_with_vendor_external_ids(bills_preview, client)
-                    except Exception:
-                        pass
-
-                    pi_df = ramp_bills_to_purchase_invoice_lines(bills_preview, cfg)
-                    gj_df = ramp_bills_to_general_journal(bills_preview, cfg)
-
-                    pi_total = pi_df['Amount'].sum() if pi_df is not None and not pi_df.empty and 'Amount' in pi_df.columns else 0.0
-                    bill_count = len(pi_df['Document No.'].unique()) if pi_df is not None and not pi_df.empty and 'Document No.' in pi_df.columns else len(bills_preview)
-
-                    st.write(f"Bills count: **{bill_count}** — Total amount: **${pi_total:,.2f}**")
-
-                    st.subheader("Preview - Purchase Invoice (first 10 rows)")
-                    if pi_df is None or pi_df.empty:
-                        st.info("No purchase invoice rows generated.")
+    import warnings
+    warnings.warn(
+        "This archived UI file was moved to archive.legacy_scripts.ui_invoices_backup; import from there if needed.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    from archive.legacy_scripts.ui_invoices_backup import *
                     else:
                         st.dataframe(pi_df.head(10), use_container_width=True)
 

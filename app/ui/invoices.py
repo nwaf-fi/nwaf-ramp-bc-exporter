@@ -1,10 +1,63 @@
-import warnings
-warnings.warn(
-    "Importing ui.invoices directly is deprecated; use app.ui.invoices instead.",
-    DeprecationWarning,
-    stacklevel=2,
-)
-from app.ui.invoices import *
+import streamlit as st
+import pandas as pd
+from datetime import datetime
+from io import BytesIO
+import os
+import json
+
+from ramp_client import RampClient, _date_to_iso
+from transform import (ramp_bills_to_purchase_invoice_lines,
+                       ramp_bills_to_general_journal,
+                       enrich_bills_with_vendor_external_ids)
+
+
+def render_invoices_tab(cfg, env):
+    st.subheader("Purchase Invoice Export (Bills)")
+    st.write("Generate Purchase Invoices CSV from Ramp bills filtered by payment send date (for bank reconciliation).")
+
+    # Debug section
+    with st.expander("🔍 Debug: Test Bill Count by Date Range"):
+        st.write("Quick test to count bills with payment dates in a range (does not generate exports)")
+        debug_col1, debug_col2 = st.columns(2)
+        with debug_col1:
+            debug_start = st.date_input("Test Start Date", value=datetime(2026, 1, 1).date(), key='debug_start')
+        with debug_col2:
+            debug_end = st.date_input("Test End Date", value=datetime(2026, 1, 31).date(), key='debug_end')
+        
+        if st.button("Count Bills in Range", key='debug_count_btn'):
+            with st.spinner("Fetching all bills from Ramp (paginating all pages)..."):
+                try:
+                    client = RampClient(
+                        base_url=cfg['ramp']['base_url'],
+                        token_url=cfg['ramp']['token_url'],
+                        client_id=env['RAMP_CLIENT_ID'],
+                        client_secret=env['RAMP_CLIENT_SECRET'],
+                        enable_sync=False
+                    )
+                    client.authenticate()
+                    
+                    # Fetch ALL bills using pagination (no API date filter available)
+                    # Must filter client-side by payment.payment_date
+                    all_bills = client.get_all_bills(page_size=100) or []
+                    st.info(f"Total bills fetched from API (all bills, paginated): {len(all_bills)}")
+                    
+                    # Analyze date fields in all bills
+                    bills_with_payment_obj = 0
+                    bills_with_payment_date = 0
+                    bills_with_issued_at = 0
+                    bills_with_due_at = 0
+                    bills_with_paid_at = 0
+                    
+                    filtered = []
+                    for bill in all_bills:
+                        payment_obj = bill.get('payment')
+                        if payment_obj:
+                            bills_with_payment_obj += 1
+                            if payment_obj.get('payment_date'):
+                                bills_with_payment_date += 1
+                        
+                        if bill.get('issued_at'):
+                            bills_with_issued_at += 1
                         if bill.get('due_at'):
                             bills_with_due_at += 1
                         if bill.get('paid_at'):
@@ -206,3 +259,50 @@ from app.ui.invoices import *
                 mime='text/csv', 
                 key='invoices_download_gj'
             )
+
+        # Post-export: Mark bills as synced
+        st.markdown("---")
+        with st.expander("⚠️ Post-export actions (Advanced)", expanded=False):
+            st.write(f"{len(st.session_state.get('inv_bills', []))} bills prepared for potential sync.")
+            mark_after_export = st.checkbox("Mark exported bills as synced", value=False, key='mark_bills_after_export')
+            enable_live_sync = st.checkbox("Enable live Ramp sync (performs writes)", value=False, key='enable_live_bill_sync')
+
+            if mark_after_export:
+                st.warning("This action will update Ramp records when live sync is enabled.")
+                confirm = st.checkbox("I confirm this action", key='confirm_mark_bills')
+                if confirm and st.button("Mark bills as synced"):
+                    bills = st.session_state.get('inv_bills') or []
+                    if not bills:
+                        st.error("No cached bills available to sync. Generate invoices first.")
+                    else:
+                        try:
+                            client = RampClient(
+                                base_url=cfg['ramp']['base_url'],
+                                token_url=cfg['ramp']['token_url'],
+                                client_id=env['RAMP_CLIENT_ID'],
+                                client_secret=env['RAMP_CLIENT_SECRET'],
+                                enable_sync=enable_live_sync
+                            )
+                            client.authenticate()
+
+                            sync_ref = f"BC_EXPORT_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                            successful_syncs = []
+                            for bill in bills:
+                                bid = bill.get('id')
+                                if bid:
+                                    obj = {'id': bid}
+                                    obj['reference_id'] = sync_ref
+                                    successful_syncs.append(obj)
+
+                            dry_run = not enable_live_sync
+                            ok, info = client.post_accounting_syncs(successful_syncs=successful_syncs, failed_syncs=[], sync_type='BILL_SYNC', dry_run=dry_run)
+                            if ok:
+                                if dry_run:
+                                    st.success(f"✅ [DRY RUN] Prepared {len(successful_syncs)} bill(s) for sync. See preview above.")
+                                else:
+                                    st.success(f"✅ Marked {len(successful_syncs)} bill(s) as synced in Ramp.")
+                            else:
+                                st.error(f"❌ Failed to post bill syncs: {info}")
+
+                        except Exception as e:
+                            st.error(f"❌ Error performing bill sync: {e}")

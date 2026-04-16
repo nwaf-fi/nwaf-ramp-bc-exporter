@@ -1,10 +1,43 @@
-import warnings
-warnings.warn(
-    "Importing ui.credit_cards directly is deprecated; use app.ui.credit_cards instead.",
-    DeprecationWarning,
-    stacklevel=2,
-)
-from app.ui.credit_cards import *
+import streamlit as st
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
+import os
+import pandas as pd
+from ramp_client import RampClient
+from transform import ramp_credit_card_to_bc_rows
+from utils import _extract_amount, _write_sync_audit
+
+
+def render_credit_cards_tab(cfg, env):
+    st.subheader("Credit Card Statement Export")
+    st.write("Select a credit card statement from the dropdown to export transactions for that period.")
+
+    # Fetch available statements on load
+    if 'cc_statements' not in st.session_state:
+        with st.spinner("Loading available statements..."):
+            try:
+                client = RampClient(
+                    base_url=cfg['ramp']['base_url'],
+                    token_url=cfg['ramp']['token_url'],
+                    client_id=env['RAMP_CLIENT_ID'],
+                    client_secret=env['RAMP_CLIENT_SECRET'],
+                    enable_sync=False
+                )
+                client.authenticate()
+                stmts = client.get_statements()
+                st.session_state['cc_statements'] = stmts if stmts else []
+            except Exception as e:
+                st.error(f"Error loading statements: {e}")
+                st.session_state['cc_statements'] = []
+
+    stmts = st.session_state.get('cc_statements', [])
+    
+    if not stmts:
+        st.info("No statements found for this account")
+        if st.button("Refresh Statements", key='cc_refresh_statements'):
+            st.session_state.pop('cc_statements', None)
+            st.rerun()
+    else:
         # Create statement options for dropdown
         statement_options = []
         for stmt in stmts:
@@ -236,10 +269,7 @@ from app.ui.credit_cards import *
                                     tid = t.get('id')
                                     status = t.get('sync_status', 'unknown')
                                     results.append({
-                                        'timestamp': datetime.now().isoformat(),
-                                        'transaction_id': tid,
-                                        'ok': False,
-                                        'message': f"Skipped: sync_status='{status}', must be SYNC_READY in Ramp UI first"
+                                        'timestamp': datetime.now().isoformat(), 'transaction_id': tid, 'ok': False, 'message': f"Skipped: sync_status='{status}', must be SYNC_READY in Ramp UI first"
                                     })
                                     progress.progress(i / total)
 

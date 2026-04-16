@@ -1,10 +1,6 @@
-import warnings
-warnings.warn(
-    "Importing streamlit_app.py directly is deprecated; use app.streamlit_app instead.",
-    DeprecationWarning,
-    stacklevel=2,
-)
-from app.streamlit_app import *
+import streamlit as st
+import pandas as pd
+from datetime import datetime
 from io import BytesIO
 import sys
 import os
