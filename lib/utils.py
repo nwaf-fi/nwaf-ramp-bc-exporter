@@ -1,7 +1,15 @@
 # utils.py
 
 import os
-import tomllib
+try:
+    # Python 3.11+ provides tomllib in the stdlib
+    import tomllib as _tomllib
+    _use_tomllib = True
+except Exception:
+    # Fallback to the third-party toml package
+    import toml as _tomllib
+    _use_tomllib = False
+
 from dotenv import load_dotenv
 from typing import Dict, Any
 from datetime import datetime
@@ -30,8 +38,14 @@ def load_config(config_path: str = 'config.toml') -> Dict[str, Any]:
     Loads configuration settings from a TOML file.
     """
     try:
-        with open(config_path, 'r') as f:
-            config = tomllib.loads(f.read())
+        with open(config_path, 'rb' if _use_tomllib else 'r') as f:
+            content = f.read()
+            if _use_tomllib:
+                # tomllib expects bytes
+                config = _tomllib.loads(content)
+            else:
+                # third-party toml expects text
+                config = _tomllib.loads(content.decode('utf-8'))
         return config
     except FileNotFoundError:
         raise FileNotFoundError(f"Configuration file not found at: {config_path}")
