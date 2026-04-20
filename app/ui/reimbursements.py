@@ -7,7 +7,7 @@ import os
 
 from ramp_client import RampClient
 from transform import ramp_reimbursements_to_bc_rows
-from utils import _write_sync_audit
+from lib.utils import _write_sync_audit
 
 
 def render_reimbursements_tab(cfg, env):

@@ -5,7 +5,7 @@ import os
 import pandas as pd
 from ramp_client import RampClient
 from transform import ramp_credit_card_to_bc_rows
-from utils import _extract_amount, _write_sync_audit
+from lib.utils import _extract_amount, _write_sync_audit
 
 
 def render_credit_cards_tab(cfg, env):
