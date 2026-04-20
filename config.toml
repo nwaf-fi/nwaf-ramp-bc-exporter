@@ -2,7 +2,7 @@
 
 [ramp]
 base_url = "https://api.ramp.com/developer/v1"
-token_url = "https://api.ramp.com/developer/v1/token"
+token_url = "https://api.ramp.com/oauth2/v2/token"
 transactions_endpoint = "/transactions"
 status_filter = "CLEARED" # CLEARED, PENDING, FAILED
 page_size = 200
