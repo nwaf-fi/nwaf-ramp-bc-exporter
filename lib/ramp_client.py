@@ -24,7 +24,7 @@ class RampClient:
         if 'developer/v1' in base:
             endpoint = urljoin(base + '/', path.lstrip('/'))
         else:
-            endpoint = urljoin(base + '/', f'developer/v1/{path.lstrip('/')}')
+            endpoint = urljoin(base + '/', 'developer/v1/' + path.lstrip('/'))
         return endpoint
     def __init__(self, base_url: str, token_url: str, client_id: str, client_secret: str, enable_sync: bool = False):
         # Normalize base_url to avoid duplicated segments like '/developer/v1/developer/v1'
