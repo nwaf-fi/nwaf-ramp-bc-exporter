@@ -1,18 +1,9 @@
-import sys
-import os
-
-# -------------------------
-# Path setup — MUST be first so all subsequent imports resolve correctly.
-# Inserts the repo root so auth.*, lib.*, ui.*, transform, etc. are all findable.
-# -------------------------
-_repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if _repo_root not in sys.path:
-    sys.path.insert(0, _repo_root)
-
 import streamlit as st
 import pandas as pd
 from datetime import datetime
 from io import BytesIO
+import sys
+import os
 import streamlit.components.v1 as components
 
 # -------------------------
@@ -92,10 +83,18 @@ else:
     )
 
 # -------------------------
-# Internal imports (use lib.* directly — no shim chain)
+# Path setup — ensure repo root is in sys.path so utils, ramp_client,
+# transform, ui.*, lib.* and auth.* can all be resolved.
 # -------------------------
-from lib.utils import load_env, load_config, _extract_amount, _write_sync_audit
-from lib.ramp_client import RampClient
+_repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
+
+# -------------------------
+# Internal imports
+# -------------------------
+from utils import load_env, load_config, _extract_amount, _write_sync_audit
+from ramp_client import RampClient
 from transform import (
     ramp_credit_card_to_bc_rows,
     ramp_bills_to_bc_rows,
