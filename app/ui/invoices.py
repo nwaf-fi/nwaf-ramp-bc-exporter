@@ -5,7 +5,8 @@ from io import BytesIO
 import os
 import json
 
-from ramp_client import RampClient, _date_to_iso
+from ramp_client import RampClient
+from lib.ramp_client import _date_to_iso
 from transform import (ramp_bills_to_purchase_invoice_lines,
                        ramp_bills_to_general_journal,
                        enrich_bills_with_vendor_external_ids)
