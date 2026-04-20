@@ -71,8 +71,12 @@ class RampClient:
             try:
                 resp = self.session.post(
                     url,
-                    data={"grant_type": "client_credentials", "scope": all_scopes},
-                    auth=(self.client_id, self.client_secret),
+                    data={
+                        "grant_type": "client_credentials",
+                        "scope": all_scopes,
+                        "client_id": self.client_id,
+                        "client_secret": self.client_secret,
+                    },
                     timeout=10,
                 )
                 resp.raise_for_status()
