@@ -6,4 +6,4 @@ warnings.warn(
 )
 
 # Re-export the app-level implementation
-from app.ui.invoices import render_invoices_tab, *
+from app.ui.invoices import *
