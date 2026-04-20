@@ -699,21 +699,31 @@ class RampClient:
 
         results: List[Dict] = []
         next_cursor = None
+        next_url = None
         page_num = 0
         while True:
             page_num += 1
-            if next_cursor:
-                params["cursor"] = next_cursor
-            resp = self.session.get(url, params=params)
+            if next_url:
+                # Follow the full next URL directly (used by bills endpoint)
+                resp = self.session.get(next_url)
+            else:
+                if next_cursor:
+                    params["cursor"] = next_cursor
+                resp = self.session.get(url, params=params)
             resp.raise_for_status()
             data = resp.json()
             items = data.get("data") or []
             results.extend(items)
             print(f"📄 Page {page_num}: fetched {len(items)} items (total so far: {len(results)})")
+            # Support both cursor-based and next-URL-based pagination
             next_cursor = data.get("next") or data.get("next_cursor")
+            page_info = data.get("page") or {}
+            next_url = page_info.get("next") if not next_cursor else None
             if next_cursor:
                 print(f"🔄 Next cursor found, fetching next page...")
-            if not next_cursor:
+            elif next_url:
+                print(f"🔄 Next URL found, fetching next page...")
+            if not next_cursor and not next_url:
                 break
         
         print(f"✅ Retrieved {len(results)} total items from {endpoint} across {page_num} page(s)")
