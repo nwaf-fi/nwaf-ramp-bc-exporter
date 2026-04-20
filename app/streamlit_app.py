@@ -93,7 +93,7 @@ if _repo_root not in sys.path:
 # -------------------------
 # Internal imports
 # -------------------------
-from utils import load_env, load_config, _extract_amount, _write_sync_audit
+from lib.utils import load_env, load_config, _extract_amount, _write_sync_audit
 from ramp_client import RampClient
 from transform import (
     ramp_credit_card_to_bc_rows,
