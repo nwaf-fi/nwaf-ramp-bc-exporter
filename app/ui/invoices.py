@@ -144,13 +144,28 @@ def render_invoices_tab(cfg, env):
                 )
                 client.authenticate()
 
-                # Fetch ALL bills using pagination (no API date filter available)
-                # Must filter client-side by payment.payment_date
-                all_bills = client.get_all_bills() or []
-                
-                # Filter client-side by payment.payment_date
+                # Fetch bills filtered server-side by paid_at date range
+                from_paid_at = inv_start.strftime('%Y-%m-%dT00:00:00+00:00')
+                to_paid_at = inv_end.strftime('%Y-%m-%dT23:59:59+00:00')
+                all_bills = client.get_all_bills(
+                    from_paid_at=from_paid_at,
+                    to_paid_at=to_paid_at,
+                ) or []
+
+                # paid_at is a top-level field; also keep any bills missing paid_at
+                # that fall in range via fallback to payment.payment_date
                 filtered_bills = []
                 for bill in all_bills:
+                    paid_at_str = bill.get('paid_at')
+                    if paid_at_str:
+                        try:
+                            paid_date = datetime.fromisoformat(paid_at_str[:10]).date()
+                            if inv_start <= paid_date <= inv_end:
+                                filtered_bills.append(bill)
+                                continue
+                        except:
+                            pass
+                    # Fallback: check nested payment.payment_date
                     payment_obj = bill.get('payment') or {}
                     payment_date_str = payment_obj.get('payment_date')
                     if payment_date_str:
@@ -160,13 +175,13 @@ def render_invoices_tab(cfg, env):
                                 filtered_bills.append(bill)
                         except:
                             pass
-                
+
                 if not filtered_bills:
-                    st.warning(f'No bills found with payment dates between {inv_start} and {inv_end}.')
-                    st.info(f'Total bills in system: {len(all_bills)}')
+                    st.warning(f'No bills found with paid_at between {inv_start} and {inv_end}.')
+                    st.info(f'Total bills returned by API: {len(all_bills)}')
                     st.stop()
-                
-                st.success(f"Found {len(filtered_bills)} bills (from {len(all_bills)} total) with payment dates in range")
+
+                st.success(f"Found {len(filtered_bills)} paid bills in date range")
 
                 # Enrich with vendor external IDs
                 try:

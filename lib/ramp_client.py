@@ -117,25 +117,34 @@ class RampClient:
         """
         return self._get_paginated_data("bills", status=status, from_issued_date=from_issued_date, to_issued_date=to_issued_date, start_date=start_date, end_date=end_date, page_size=page_size, **extra_params)
 
-    def get_all_bills(self) -> list:
+    def get_all_bills(
+        self,
+        from_paid_at: Optional[str] = None,
+        to_paid_at: Optional[str] = None,
+        page_size: int = 100,
+    ) -> list:
         """
-        Fetch all bills using page.next URL-based pagination.
-        The Ramp bills endpoint does not accept a limit parameter.
-        Caller must filter client-side after fetching.
+        Fetch bills using server-side from_paid_at/to_paid_at filters and
+        start-based pagination (page_size 2-100 per Ramp docs).
+        paid_at is a top-level field on each bill object.
         """
         all_bills = []
-        next_url = None
-        page_num = 0
         url = self._build_endpoint("bills")
+        params = {"page_size": page_size}
+        if from_paid_at:
+            params["from_paid_at"] = from_paid_at
+        if to_paid_at:
+            params["to_paid_at"] = to_paid_at
+        print(f"🔍 Fetching bills with params: {params}")
 
+        page_num = 0
+        next_url = None
         while True:
             page_num += 1
             if next_url:
-                print(f"🔍 Fetching bills page {page_num} using next URL")
                 resp = self.session.get(next_url)
             else:
-                print(f"🔍 Fetching bills page {page_num}")
-                resp = self.session.get(url)
+                resp = self.session.get(url, params=params)
             resp.raise_for_status()
             response = resp.json()
 
