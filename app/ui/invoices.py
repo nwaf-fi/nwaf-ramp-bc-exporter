@@ -39,7 +39,7 @@ def render_invoices_tab(cfg, env):
                     
                     # Fetch ALL bills using pagination (no API date filter available)
                     # Must filter client-side by payment.payment_date
-                    all_bills = client.get_all_bills(page_size=100) or []
+                    all_bills = client.get_all_bills() or []
                     st.info(f"Total bills fetched from API (all bills, paginated): {len(all_bills)}")
                     
                     # Analyze date fields in all bills
@@ -146,7 +146,7 @@ def render_invoices_tab(cfg, env):
 
                 # Fetch ALL bills using pagination (no API date filter available)
                 # Must filter client-side by payment.payment_date
-                all_bills = client.get_all_bills(page_size=100) or []
+                all_bills = client.get_all_bills() or []
                 
                 # Filter client-side by payment.payment_date
                 filtered_bills = []

@@ -117,53 +117,28 @@ class RampClient:
         """
         return self._get_paginated_data("bills", status=status, from_issued_date=from_issued_date, to_issued_date=to_issued_date, start_date=start_date, end_date=end_date, page_size=page_size, **extra_params)
 
-    def get_all_bills(
-        self,
-        page_size: int = 100,
-    ) -> list:
+    def get_all_bills(self) -> list:
         """
-        Fetch all bills using cursor-based pagination.
-        
-        No server-side date filtering is used because the Ramp API does not
-        reliably support filtering by payment.payment_date. Caller must filter
-        client-side after fetching.
+        Fetch all bills using page.next URL-based pagination.
+        The Ramp bills endpoint does not accept a limit parameter.
+        Caller must filter client-side after fetching.
         """
         all_bills = []
         next_url = None
         page_num = 0
+        url = self._build_endpoint("bills")
 
         while True:
             page_num += 1
-            
-            # Use next_url directly if available, otherwise build initial URL
             if next_url:
-                url = next_url
                 print(f"🔍 Fetching bills page {page_num} using next URL")
+                resp = self.session.get(next_url)
             else:
-                url = self._build_endpoint("bills")
-                params = {"limit": page_size}
-                print(f"🔍 Fetching bills page {page_num} with params: {params}")
-                resp = self.session.get(url, params=params)
-                resp.raise_for_status()
-                response = resp.json()
-                
-                data = response.get("data") or []
-                all_bills.extend(data)
-                print(f"📄 Page {page_num}: fetched {len(data)} items (total so far: {len(all_bills)})")
-
-                page_info = response.get("page") or {}
-                next_url = page_info.get("next")
-                if next_url:
-                    print(f"🔄 Next URL found, fetching next page...")
-                if not next_url:
-                    break
-                continue
-            
-            # When using next_url, make request without additional params
-            resp = self.session.get(url)
+                print(f"🔍 Fetching bills page {page_num}")
+                resp = self.session.get(url)
             resp.raise_for_status()
             response = resp.json()
-            
+
             data = response.get("data") or []
             all_bills.extend(data)
             print(f"📄 Page {page_num}: fetched {len(data)} items (total so far: {len(all_bills)})")
@@ -172,7 +147,7 @@ class RampClient:
             next_url = page_info.get("next")
             if next_url:
                 print(f"🔄 Next URL found, fetching next page...")
-            if not next_url:
+            else:
                 break
 
         print(f"✅ Retrieved {len(all_bills)} total bills across {page_num} page(s)")
