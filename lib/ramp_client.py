@@ -440,7 +440,7 @@ class RampClient:
         print(f"🔎 Sync payload preview: {preview}")
 
         if dry_run:
-            return True, {'endpoint': endpoint, 'payload_preview': preview}
+            return True, {'endpoint': endpoint, 'payload_preview': preview, 'payload': payload}
 
         try:
             resp = self.session.post(endpoint, json=payload, timeout=30)
@@ -450,11 +450,11 @@ class RampClient:
             except Exception:
                 data = resp.text
             if 200 <= status < 300:
-                return True, {'status': status, 'response': data}
+                return True, {'status': status, 'response': data, 'endpoint': endpoint, 'payload': payload}
             else:
-                return False, {'status': status, 'response': data}
+                return False, {'status': status, 'response': data, 'endpoint': endpoint, 'payload': payload}
         except Exception as ex:
-            return False, {'error': str(ex)}
+            return False, {'error': str(ex), 'endpoint': endpoint, 'payload': payload}
 
     def is_transaction_synced(self, transaction: Dict) -> bool:
         """Heuristic check whether a transaction object is already marked as synced.

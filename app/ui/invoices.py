@@ -331,6 +331,22 @@ def render_invoices_tab(cfg, env):
 
                             any_error = False
 
+                            def _show_api_detail(label, ok, info, dry_run):
+                                """Display request payload and response for a sync call."""
+                                endpoint_used = info.get('endpoint', '') if isinstance(info, dict) else ''
+                                payload_used = info.get('payload') if isinstance(info, dict) else None
+                                response_body = info.get('response') if isinstance(info, dict) else info
+                                http_status = info.get('status', '') if isinstance(info, dict) else ''
+                                with st.expander(f"🔍 API detail: {label}", expanded=not ok):
+                                    st.write(f"**Endpoint:** `POST {endpoint_used}`")
+                                    if payload_used:
+                                        st.write("**Request payload:**")
+                                        st.json(payload_used)
+                                    if not dry_run:
+                                        st.write(f"**HTTP status:** `{http_status}`")
+                                        st.write("**Response body:**")
+                                        st.json(response_body) if isinstance(response_body, dict) else st.code(str(response_body))
+
                             # Step 1: BILL_SYNC
                             if bill_syncs:
                                 ok, info = client.post_accounting_syncs(
@@ -345,8 +361,9 @@ def render_invoices_tab(cfg, env):
                                     else:
                                         st.success(f"✅ Marked {len(bill_syncs)} bill(s) as synced (BILL_SYNC) in Ramp.")
                                 else:
-                                    st.error(f"❌ BILL_SYNC failed: {info}")
+                                    st.error(f"❌ BILL_SYNC failed")
                                     any_error = True
+                                _show_api_detail('BILL_SYNC', ok, info, dry_run)
 
                             # Step 2: BILL_PAYMENT_SYNC (only after bill sync succeeds)
                             if payment_syncs and not any_error:
@@ -362,7 +379,8 @@ def render_invoices_tab(cfg, env):
                                     else:
                                         st.success(f"✅ Marked {len(payment_syncs)} payment(s) as synced (BILL_PAYMENT_SYNC) in Ramp.")
                                 else:
-                                    st.error(f"❌ BILL_PAYMENT_SYNC failed: {info}")
+                                    st.error(f"❌ BILL_PAYMENT_SYNC failed")
+                                _show_api_detail('BILL_PAYMENT_SYNC', ok, info, dry_run)
 
                             if not bill_syncs and not payment_syncs:
                                 st.warning("No bills required syncing based on their current sync_status/status.")
