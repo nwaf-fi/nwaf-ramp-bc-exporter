@@ -302,23 +302,73 @@ def render_invoices_tab(cfg, env):
                             client.authenticate()
 
                             sync_ref = f"BC_EXPORT_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                            successful_syncs = []
+                            dry_run = not enable_live_sync
+
+                            # Categorize bills per Ramp docs:
+                            # sync_status=NOT_SYNCED, status=OPEN  → BILL_SYNC only
+                            # sync_status=NOT_SYNCED, status=PAID  → BILL_SYNC then BILL_PAYMENT_SYNC
+                            # sync_status=BILL_SYNCED, status=PAID → BILL_PAYMENT_SYNC only
+                            bill_syncs = []
+                            payment_syncs = []
+                            skipped_bills = []
+
                             for bill in bills:
                                 bid = bill.get('id')
-                                if bid:
-                                    obj = {'id': bid}
-                                    obj['reference_id'] = sync_ref
-                                    successful_syncs.append(obj)
+                                if not bid:
+                                    continue
+                                entry = {'id': bid, 'reference_id': sync_ref}
+                                bill_sync_status = bill.get('sync_status', 'NOT_SYNCED')
+                                bill_status = bill.get('status', 'OPEN')
 
-                            dry_run = not enable_live_sync
-                            ok, info = client.post_accounting_syncs(successful_syncs=successful_syncs, failed_syncs=[], sync_type='BILL_SYNC', dry_run=dry_run)
-                            if ok:
-                                if dry_run:
-                                    st.success(f"✅ [DRY RUN] Prepared {len(successful_syncs)} bill(s) for sync. See preview above.")
+                                if bill_sync_status == 'NOT_SYNCED':
+                                    bill_syncs.append(entry)
+                                    if bill_status == 'PAID':
+                                        payment_syncs.append(entry)
+                                elif bill_sync_status == 'BILL_SYNCED' and bill_status == 'PAID':
+                                    payment_syncs.append(entry)
                                 else:
-                                    st.success(f"✅ Marked {len(successful_syncs)} bill(s) as synced in Ramp.")
-                            else:
-                                st.error(f"❌ Failed to post bill syncs: {info}")
+                                    skipped_bills.append(bid)
+
+                            any_error = False
+
+                            # Step 1: BILL_SYNC
+                            if bill_syncs:
+                                ok, info = client.post_accounting_syncs(
+                                    successful_syncs=bill_syncs,
+                                    failed_syncs=[],
+                                    sync_type='BILL_SYNC',
+                                    dry_run=dry_run
+                                )
+                                if ok:
+                                    if dry_run:
+                                        st.info(f"[DRY RUN] Would send {len(bill_syncs)} bill(s) via BILL_SYNC.")
+                                    else:
+                                        st.success(f"✅ Marked {len(bill_syncs)} bill(s) as synced (BILL_SYNC) in Ramp.")
+                                else:
+                                    st.error(f"❌ BILL_SYNC failed: {info}")
+                                    any_error = True
+
+                            # Step 2: BILL_PAYMENT_SYNC (only after bill sync succeeds)
+                            if payment_syncs and not any_error:
+                                ok, info = client.post_accounting_syncs(
+                                    successful_syncs=payment_syncs,
+                                    failed_syncs=[],
+                                    sync_type='BILL_PAYMENT_SYNC',
+                                    dry_run=dry_run
+                                )
+                                if ok:
+                                    if dry_run:
+                                        st.info(f"[DRY RUN] Would send {len(payment_syncs)} payment(s) via BILL_PAYMENT_SYNC.")
+                                    else:
+                                        st.success(f"✅ Marked {len(payment_syncs)} payment(s) as synced (BILL_PAYMENT_SYNC) in Ramp.")
+                                else:
+                                    st.error(f"❌ BILL_PAYMENT_SYNC failed: {info}")
+
+                            if not bill_syncs and not payment_syncs:
+                                st.warning("No bills required syncing based on their current sync_status/status.")
+
+                            if skipped_bills:
+                                st.info(f"Skipped {len(skipped_bills)} bill(s) with unexpected sync_status/status combination.")
 
                         except Exception as e:
                             st.error(f"❌ Error performing bill sync: {e}")
