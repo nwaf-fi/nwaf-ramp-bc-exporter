@@ -162,15 +162,22 @@ class RampClient:
         print(f"✅ Retrieved {len(all_bills)} total bills across {page_num} page(s)")
         return all_bills
 
-    def get_sync_ready_bills(self, page_size: int = 100) -> list:
+    def get_sync_ready_bills(self, page_size: int = 100,
+                             from_paid_at: Optional[str] = None,
+                             to_paid_at: Optional[str] = None) -> list:
         """
         Fetch all bills where sync_ready=true from
         GET /developer/v1/bills?sync_ready=true (paginated).
+        Optionally filtered by from_paid_at/to_paid_at (ISO 8601).
         Returns the full list of bill objects.
         """
         all_bills = []
         url = self._build_endpoint("bills")
         params = {"page_size": page_size, "sync_ready": "true"}
+        if from_paid_at:
+            params["from_paid_at"] = from_paid_at
+        if to_paid_at:
+            params["to_paid_at"] = to_paid_at
         print(f"🔍 Fetching sync-ready bills with params: {params}")
 
         page_num = 0

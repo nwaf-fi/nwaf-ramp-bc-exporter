@@ -287,6 +287,8 @@ def render_invoices_tab(cfg, env):
             """)
             enable_live_sync = st.checkbox("Enable live Ramp sync (performs writes)", value=False, key='enable_live_bill_sync')
 
+            st.write(f"Date filter: **{inv_start}** to **{inv_end}** (same as invoice export)")
+
             if st.button("Fetch sync-ready bills from Ramp", key='fetch_sync_ready_btn'):
                 try:
                     client = RampClient(
@@ -297,9 +299,12 @@ def render_invoices_tab(cfg, env):
                         enable_sync=False
                     )
                     client.authenticate()
-                    sync_ready_bills = client.get_sync_ready_bills()
+                    sync_ready_bills = client.get_sync_ready_bills(
+                        from_paid_at=inv_start.strftime('%Y-%m-%dT00:00:00+00:00'),
+                        to_paid_at=inv_end.strftime('%Y-%m-%dT23:59:59+00:00'),
+                    )
                     st.session_state['sync_ready_bills'] = sync_ready_bills
-                    st.success(f"Fetched {len(sync_ready_bills)} sync-ready bill(s) from Ramp.")
+                    st.success(f"Fetched {len(sync_ready_bills)} sync-ready bill(s) from Ramp (paid {inv_start} – {inv_end}).")
                 except Exception as e:
                     st.error(f"❌ Error fetching sync-ready bills: {e}")
                     import traceback
