@@ -162,6 +162,39 @@ class RampClient:
         print(f"✅ Retrieved {len(all_bills)} total bills across {page_num} page(s)")
         return all_bills
 
+    def get_sync_ready_bills(self, page_size: int = 100) -> list:
+        """
+        Fetch all bills where sync_ready=true from
+        GET /developer/v1/bills?sync_ready=true (paginated).
+        Returns the full list of bill objects.
+        """
+        all_bills = []
+        url = self._build_endpoint("bills")
+        params = {"page_size": page_size, "sync_ready": "true"}
+        print(f"🔍 Fetching sync-ready bills with params: {params}")
+
+        page_num = 0
+        next_url = None
+        while True:
+            page_num += 1
+            if next_url:
+                resp = self.session.get(next_url)
+            else:
+                resp = self.session.get(url, params=params)
+            resp.raise_for_status()
+            response = resp.json()
+
+            data = response.get("data") or []
+            all_bills.extend(data)
+            print(f"📄 Page {page_num}: {len(data)} items (total: {len(all_bills)})")
+
+            next_url = (response.get("page") or {}).get("next")
+            if not next_url:
+                break
+
+        print(f"✅ {len(all_bills)} sync-ready bills across {page_num} page(s)")
+        return all_bills
+
     def get_reimbursements(self, status: Optional[str] = None,
                           start_date: Optional[str] = None, end_date: Optional[str] = None,
                           page_size: int = 200, **extra_params) -> List[Dict]:

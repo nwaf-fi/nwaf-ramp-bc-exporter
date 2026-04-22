@@ -279,114 +279,144 @@ def render_invoices_tab(cfg, env):
         # Post-export: Mark bills as synced
         st.markdown("---")
         with st.expander("⚠️ Post-export actions (Advanced)", expanded=False):
-            st.write(f"{len(st.session_state.get('inv_bills', []))} bills prepared for potential sync.")
-            mark_after_export = st.checkbox("Mark exported bills as synced", value=False, key='mark_bills_after_export')
+            st.write("""
+            Bills are fetched fresh from Ramp using `sync_ready=true` at sync time.
+            Only bills that meet the Ramp criteria are submitted:
+            - **BILL_SYNC**: `sync_ready=true` and `sync_status=NOT_SYNCED`
+            - **BILL_PAYMENT_SYNC**: `sync_ready=true`, `sync_status=BILL_SYNCED`, and `status=PAID`
+            """)
             enable_live_sync = st.checkbox("Enable live Ramp sync (performs writes)", value=False, key='enable_live_bill_sync')
 
-            if mark_after_export:
-                st.warning("This action will update Ramp records when live sync is enabled.")
-                confirm = st.checkbox("I confirm this action", key='confirm_mark_bills')
-                if confirm and st.button("Mark bills as synced"):
-                    bills = st.session_state.get('inv_bills') or []
-                    if not bills:
-                        st.error("No cached bills available to sync. Generate invoices first.")
-                    else:
-                        try:
-                            client = RampClient(
-                                base_url=cfg['ramp']['base_url'],
-                                token_url=cfg['ramp']['token_url'],
-                                client_id=env['RAMP_CLIENT_ID'],
-                                client_secret=env['RAMP_CLIENT_SECRET'],
-                                enable_sync=enable_live_sync
-                            )
-                            client.authenticate()
+            if st.button("Fetch sync-ready bills from Ramp", key='fetch_sync_ready_btn'):
+                try:
+                    client = RampClient(
+                        base_url=cfg['ramp']['base_url'],
+                        token_url=cfg['ramp']['token_url'],
+                        client_id=env['RAMP_CLIENT_ID'],
+                        client_secret=env['RAMP_CLIENT_SECRET'],
+                        enable_sync=False
+                    )
+                    client.authenticate()
+                    sync_ready_bills = client.get_sync_ready_bills()
+                    st.session_state['sync_ready_bills'] = sync_ready_bills
+                    st.success(f"Fetched {len(sync_ready_bills)} sync-ready bill(s) from Ramp.")
+                except Exception as e:
+                    st.error(f"❌ Error fetching sync-ready bills: {e}")
+                    import traceback
+                    st.code(traceback.format_exc())
 
-                            sync_ref = f"BC_EXPORT_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            sync_ready_bills = st.session_state.get('sync_ready_bills')
+            if sync_ready_bills is not None:
+                if not sync_ready_bills:
+                    st.warning("No bills with sync_ready=true found in Ramp.")
+                else:
+                    # Show the key fields for each bill so the user can verify
+                    rows = []
+                    for b in sync_ready_bills:
+                        rows.append({
+                            'id': b.get('id', ''),
+                            'invoice_number': b.get('invoice_number', ''),
+                            'sync_status': b.get('sync_status', ''),
+                            'status': b.get('status', ''),
+                            'amount': b.get('amount', ''),
+                        })
+                    st.write("**Bills returned by `GET /bills?sync_ready=true`:**")
+                    st.dataframe(rows, use_container_width=True)
+
+                    # Categorize per Ramp docs
+                    bill_syncs = []
+                    payment_syncs = []
+                    skipped = []
+                    for b in sync_ready_bills:
+                        bid = b.get('id')
+                        if not bid:
+                            continue
+                        sync_status = b.get('sync_status', '')
+                        status = b.get('status', '')
+                        entry = {'id': bid, 'reference_id': f"BC_EXPORT_{datetime.now().strftime('%Y%m%d')}"}
+                        if sync_status == 'NOT_SYNCED':
+                            bill_syncs.append(entry)
+                        elif sync_status == 'BILL_SYNCED' and status == 'PAID':
+                            payment_syncs.append(entry)
+                        else:
+                            skipped.append({'id': bid, 'sync_status': sync_status, 'status': status})
+
+                    st.write(f"- **BILL_SYNC queue:** {len(bill_syncs)} bill(s)")
+                    st.write(f"- **BILL_PAYMENT_SYNC queue:** {len(payment_syncs)} bill(s)")
+                    if skipped:
+                        st.write(f"- **Skipped (no action needed):** {len(skipped)}")
+                        st.json(skipped)
+
+                    if bill_syncs or payment_syncs:
+                        st.warning("This action will update Ramp records when live sync is enabled.")
+                        confirm = st.checkbox("I confirm this action", key='confirm_mark_bills')
+                        if confirm and st.button("Submit sync to Ramp", key='submit_bill_sync_btn'):
                             dry_run = not enable_live_sync
-
-                            # Categorize bills per Ramp docs:
-                            # sync_status=NOT_SYNCED, status=OPEN  → BILL_SYNC only
-                            # sync_status=NOT_SYNCED, status=PAID  → BILL_SYNC then BILL_PAYMENT_SYNC
-                            # sync_status=BILL_SYNCED, status=PAID → BILL_PAYMENT_SYNC only
-                            bill_syncs = []
-                            payment_syncs = []
-                            skipped_bills = []
-
-                            for bill in bills:
-                                bid = bill.get('id')
-                                if not bid:
-                                    continue
-                                entry = {'id': bid, 'reference_id': sync_ref}
-                                bill_sync_status = bill.get('sync_status', 'NOT_SYNCED')
-                                bill_status = bill.get('status', 'OPEN')
-
-                                if bill_sync_status == 'NOT_SYNCED':
-                                    bill_syncs.append(entry)
-                                    if bill_status == 'PAID':
-                                        payment_syncs.append(entry)
-                                elif bill_sync_status == 'BILL_SYNCED' and bill_status == 'PAID':
-                                    payment_syncs.append(entry)
-                                else:
-                                    skipped_bills.append(bid)
-
-                            any_error = False
-
-                            def _show_api_detail(label, ok, info, dry_run):
-                                """Display request payload and response for a sync call."""
-                                endpoint_used = info.get('endpoint', '') if isinstance(info, dict) else ''
-                                payload_used = info.get('payload') if isinstance(info, dict) else None
-                                response_body = info.get('response') if isinstance(info, dict) else info
-                                http_status = info.get('status', '') if isinstance(info, dict) else ''
-                                with st.expander(f"🔍 API detail: {label}", expanded=not ok):
-                                    st.write(f"**Endpoint:** `POST {endpoint_used}`")
-                                    if payload_used:
-                                        st.write("**Request payload:**")
-                                        st.json(payload_used)
-                                    if not dry_run:
-                                        st.write(f"**HTTP status:** `{http_status}`")
-                                        st.write("**Response body:**")
-                                        st.json(response_body) if isinstance(response_body, dict) else st.code(str(response_body))
-
-                            # Step 1: BILL_SYNC
-                            if bill_syncs:
-                                ok, info = client.post_accounting_syncs(
-                                    successful_syncs=bill_syncs,
-                                    failed_syncs=[],
-                                    sync_type='BILL_SYNC',
-                                    dry_run=dry_run
+                            try:
+                                client = RampClient(
+                                    base_url=cfg['ramp']['base_url'],
+                                    token_url=cfg['ramp']['token_url'],
+                                    client_id=env['RAMP_CLIENT_ID'],
+                                    client_secret=env['RAMP_CLIENT_SECRET'],
+                                    enable_sync=enable_live_sync
                                 )
-                                if ok:
-                                    if dry_run:
-                                        st.info(f"[DRY RUN] Would send {len(bill_syncs)} bill(s) via BILL_SYNC.")
+                                client.authenticate()
+
+                                def _show_api_detail(label, ok, info, dry_run):
+                                    endpoint_used = info.get('endpoint', '') if isinstance(info, dict) else ''
+                                    payload_used = info.get('payload') if isinstance(info, dict) else None
+                                    response_body = info.get('response') if isinstance(info, dict) else info
+                                    http_status = info.get('status', '') if isinstance(info, dict) else ''
+                                    with st.expander(f"🔍 API detail: {label}", expanded=not ok):
+                                        st.write(f"**Endpoint:** `POST {endpoint_used}`")
+                                        if payload_used:
+                                            st.write("**Request payload:**")
+                                            st.json(payload_used)
+                                        if not dry_run:
+                                            st.write(f"**HTTP status:** `{http_status}`")
+                                            st.write("**Response body:**")
+                                            st.json(response_body) if isinstance(response_body, dict) else st.code(str(response_body))
+
+                                any_error = False
+
+                                if bill_syncs:
+                                    ok, info = client.post_accounting_syncs(
+                                        successful_syncs=bill_syncs,
+                                        failed_syncs=[],
+                                        sync_type='BILL_SYNC',
+                                        dry_run=dry_run
+                                    )
+                                    if ok:
+                                        if dry_run:
+                                            st.info(f"[DRY RUN] Would send {len(bill_syncs)} bill(s) via BILL_SYNC.")
+                                        else:
+                                            st.success(f"✅ Marked {len(bill_syncs)} bill(s) as synced (BILL_SYNC) in Ramp.")
                                     else:
-                                        st.success(f"✅ Marked {len(bill_syncs)} bill(s) as synced (BILL_SYNC) in Ramp.")
-                                else:
-                                    st.error(f"❌ BILL_SYNC failed")
-                                    any_error = True
-                                _show_api_detail('BILL_SYNC', ok, info, dry_run)
+                                        st.error("❌ BILL_SYNC failed")
+                                        any_error = True
+                                    _show_api_detail('BILL_SYNC', ok, info, dry_run)
 
-                            # Step 2: BILL_PAYMENT_SYNC (only after bill sync succeeds)
-                            if payment_syncs and not any_error:
-                                ok, info = client.post_accounting_syncs(
-                                    successful_syncs=payment_syncs,
-                                    failed_syncs=[],
-                                    sync_type='BILL_PAYMENT_SYNC',
-                                    dry_run=dry_run
-                                )
-                                if ok:
-                                    if dry_run:
-                                        st.info(f"[DRY RUN] Would send {len(payment_syncs)} payment(s) via BILL_PAYMENT_SYNC.")
+                                if payment_syncs and not any_error:
+                                    ok, info = client.post_accounting_syncs(
+                                        successful_syncs=payment_syncs,
+                                        failed_syncs=[],
+                                        sync_type='BILL_PAYMENT_SYNC',
+                                        dry_run=dry_run
+                                    )
+                                    if ok:
+                                        if dry_run:
+                                            st.info(f"[DRY RUN] Would send {len(payment_syncs)} payment(s) via BILL_PAYMENT_SYNC.")
+                                        else:
+                                            st.success(f"✅ Marked {len(payment_syncs)} payment(s) as synced (BILL_PAYMENT_SYNC) in Ramp.")
                                     else:
-                                        st.success(f"✅ Marked {len(payment_syncs)} payment(s) as synced (BILL_PAYMENT_SYNC) in Ramp.")
-                                else:
-                                    st.error(f"❌ BILL_PAYMENT_SYNC failed")
-                                _show_api_detail('BILL_PAYMENT_SYNC', ok, info, dry_run)
+                                        st.error("❌ BILL_PAYMENT_SYNC failed")
+                                    _show_api_detail('BILL_PAYMENT_SYNC', ok, info, dry_run)
 
-                            if not bill_syncs and not payment_syncs:
-                                st.warning("No bills required syncing based on their current sync_status/status.")
+                                # Clear cache so next fetch reflects new state
+                                if not dry_run:
+                                    st.session_state.pop('sync_ready_bills', None)
 
-                            if skipped_bills:
-                                st.info(f"Skipped {len(skipped_bills)} bill(s) with unexpected sync_status/status combination.")
-
-                        except Exception as e:
-                            st.error(f"❌ Error performing bill sync: {e}")
+                            except Exception as e:
+                                st.error(f"❌ Error performing bill sync: {e}")
+                                import traceback
+                                st.code(traceback.format_exc())
