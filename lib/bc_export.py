@@ -24,7 +24,7 @@ def export(df: pd.DataFrame, output_dir: str = 'exports', prefix: str = 'RAMP_TR
     
     # CSV file path (for actual BC upload)
     csv_path = os.path.join(output_dir, f"{filename_base}.csv")
-    df.to_csv(csv_path, index=False)
+    df.to_csv(csv_path, index=False, encoding='utf-8-sig')
     
     # XLSX file path (for human review)
     xlsx_path = os.path.join(output_dir, f"{filename_base}.xlsx")

@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import BytesIO
 import json
 import os
@@ -36,7 +36,7 @@ def render_reimbursements_tab(cfg, env):
                     enable_sync=False
                 )
                 client.authenticate()
-                from_dt_str = reim_start.strftime('%Y-%m-%dT00:00:00Z')
+                from_dt_str = (reim_start - timedelta(days=90)).strftime('%Y-%m-%dT00:00:00Z')
                 to_dt_str = reim_end.strftime('%Y-%m-%dT23:59:59Z')
                 # Ask server to only return reimbursements that haven't been synced yet
                 reims = client.get_reimbursements(status='PAID', from_transaction_date=from_dt_str, to_transaction_date=to_dt_str, page_size=cfg['ramp'].get('page_size', 200), has_no_sync_commits=True)
@@ -44,39 +44,15 @@ def render_reimbursements_tab(cfg, env):
                 if not reims:
                     st.info('No reimbursements found for the specified period.')
                 else:
-                    st.success(f"Retrieved {len(reims)} reimbursements (preview)")
+                    st.success(f"Retrieved {len(reims)} reimbursements (preview, 90-day lookback)")
 
                     # Filter already-synced
                     reims_preview = [r for r in reims if not client.is_transaction_synced(r)]
 
-                    # Additional date filtering: use transaction_date (expense date) as the primary
-                    # filter field, matching what the API filter targets.
-                    def _reim_date_str(r):
-                        for k in ('transaction_date', 'paid_at', 'posted_at', 'created_at'):
-                            v = r.get(k)
-                            if v:
-                                return v[:10]
-                        return None
-
-                    filtered = []
-                    filtered_out = 0
-                    for r in reims_preview:
-                        ds = _reim_date_str(r)
-                        if ds:
-                            try:
-                                d = datetime.fromisoformat(ds).date()
-                                if d >= reim_start and d <= reim_end:
-                                    filtered.append(r)
-                                else:
-                                    filtered_out += 1
-                            except Exception:
-                                # If parsing fails, keep the reimbursement to be safe
-                                filtered.append(r)
-                        else:
-                            # No date available — keep for manual inspection
-                            filtered.append(r)
-
-                    reims_preview = filtered
+                    # The transform function's independent passes handle period filtering;
+                    # do NOT apply a secondary date filter here — it would exclude prior-period
+                    # expenses (transaction_date outside range) that are needed for Pass 2
+                    # clearing lines (payment_processed_at within range).
 
                     # Exclude items already synced in this session (optimistic local filter)
                     synced_ids = set(st.session_state.get('synced_reimbursements', []))
@@ -148,7 +124,7 @@ def render_reimbursements_tab(cfg, env):
                     enable_sync=st.session_state.get('enable_live_ramp_sync', False)
                 )
                 client.authenticate()
-                from_dt_str = reim_start.strftime('%Y-%m-%dT00:00:00Z')
+                from_dt_str = (reim_start - timedelta(days=90)).strftime('%Y-%m-%dT00:00:00Z')
                 to_dt_str = reim_end.strftime('%Y-%m-%dT23:59:59Z')
                 # Ask server to only return reimbursements that haven't been synced yet
                 reims = client.get_reimbursements(status='PAID', from_transaction_date=from_dt_str, to_transaction_date=to_dt_str, page_size=cfg['ramp'].get('page_size', 200), has_no_sync_commits=True)
@@ -168,34 +144,10 @@ def render_reimbursements_tab(cfg, env):
                 if skipped:
                     st.info(f"Skipped {skipped} reimbursements already marked synced in Ramp")
 
-                # Additional date filtering: use transaction_date (expense date) as the primary
-                # filter field, matching what the API filter targets.
-                def _reim_date_str(r):
-                    for k in ('transaction_date', 'paid_at', 'posted_at', 'created_at'):
-                        v = r.get(k)
-                        if v:
-                            return v[:10]
-                    return None
-
-                filtered = []
-                filtered_out = 0
-                for r in reims:
-                    ds = _reim_date_str(r)
-                    if ds:
-                        try:
-                            d = datetime.fromisoformat(ds).date()
-                            if d >= reim_start and d <= reim_end:
-                                filtered.append(r)
-                            else:
-                                filtered_out += 1
-                        except Exception:
-                            filtered.append(r)
-                    else:
-                        filtered.append(r)
-
-                reims = filtered
-                if filtered_out:
-                    st.info(f"{filtered_out} reimbursements were excluded because their dates fall outside the selected range.")
+                # The transform function's independent passes handle period filtering;
+                # do NOT apply a secondary date filter here — it would exclude prior-period
+                # expenses (transaction_date outside range) that are needed for Pass 2
+                # clearing lines (payment_processed_at within range).
 
                 # Exclude items previously synced in this session
                 synced_ids = set(st.session_state.get('synced_reimbursements', []))

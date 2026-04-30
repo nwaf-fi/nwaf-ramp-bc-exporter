@@ -120,8 +120,8 @@ if df.empty:
     print("\nNo journal rows produced for the selected period. Check the distribution above.")
     sys.exit(0)
 
-detail_rows   = df[~df['Document No.'].str.endswith('-CLR')]
-clearing_rows = df[df['Document No.'].str.endswith('-CLR')]
+detail_rows   = df[df['Document Type'] == 'Invoice']
+clearing_rows = df[df['Document Type'] == 'Payment']
 
 print(f"\nJournal rows produced:")
 print(f"  Detail lines  (Dr Expense / Cr A/P): {len(detail_rows)}")

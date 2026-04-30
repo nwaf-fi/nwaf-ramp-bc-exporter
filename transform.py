@@ -557,7 +557,7 @@ def ramp_reimbursements_to_bc_rows(reimbursements: List[Dict[str, Any]], cfg: Di
         payment_date_str = _fmt_date(batch['payment_date_iso'])
         names = ', '.join(sorted(batch['employee_names']))
         payment_id_ref = f" (Ref: {batch['payment_id']})" if batch['payment_id'] else ''
-        description = f"Reimbursement payment – {names}{payment_id_ref}"
+        description = f"Reimbursement payment - {names}{payment_id_ref}"
 
         # Document No. is the payment_batch_id — ties directly to the bank statement
         doc_no = payment_batch_id
