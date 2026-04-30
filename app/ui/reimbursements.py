@@ -36,10 +36,10 @@ def render_reimbursements_tab(cfg, env):
                     enable_sync=False
                 )
                 client.authenticate()
-                start_date_str = reim_start.strftime('%Y-%m-%d')
-                end_date_str = reim_end.strftime('%Y-%m-%d')
+                from_dt_str = reim_start.strftime('%Y-%m-%dT00:00:00Z')
+                to_dt_str = reim_end.strftime('%Y-%m-%dT23:59:59Z')
                 # Ask server to only return reimbursements that haven't been synced yet
-                reims = client.get_reimbursements(status='PAID', start_date=start_date_str, end_date=end_date_str, page_size=cfg['ramp'].get('page_size', 200), has_no_sync_commits=True)
+                reims = client.get_reimbursements(status='PAID', from_transaction_date=from_dt_str, to_transaction_date=to_dt_str, page_size=cfg['ramp'].get('page_size', 200), has_no_sync_commits=True)
 
                 if not reims:
                     st.info('No reimbursements found for the specified period.')
@@ -49,10 +49,10 @@ def render_reimbursements_tab(cfg, env):
                     # Filter already-synced
                     reims_preview = [r for r in reims if not client.is_transaction_synced(r)]
 
-                    # Additional date filtering: Ramp APIs may apply different date fields; ensure we only include reimbursements whose
-                    # relevant date falls within the selected start/end (inclusive). Prefer 'paid_at' then 'posted_at', then 'created_at'.
+                    # Additional date filtering: use transaction_date (expense date) as the primary
+                    # filter field, matching what the API filter targets.
                     def _reim_date_str(r):
-                        for k in ('paid_at', 'posted_at', 'created_at'):
+                        for k in ('transaction_date', 'paid_at', 'posted_at', 'created_at'):
                             v = r.get(k)
                             if v:
                                 return v[:10]
@@ -148,10 +148,10 @@ def render_reimbursements_tab(cfg, env):
                     enable_sync=st.session_state.get('enable_live_ramp_sync', False)
                 )
                 client.authenticate()
-                start_date_str = reim_start.strftime('%Y-%m-%d')
-                end_date_str = reim_end.strftime('%Y-%m-%d')
+                from_dt_str = reim_start.strftime('%Y-%m-%dT00:00:00Z')
+                to_dt_str = reim_end.strftime('%Y-%m-%dT23:59:59Z')
                 # Ask server to only return reimbursements that haven't been synced yet
-                reims = client.get_reimbursements(status='PAID', start_date=start_date_str, end_date=end_date_str, page_size=cfg['ramp'].get('page_size', 200), has_no_sync_commits=True)
+                reims = client.get_reimbursements(status='PAID', from_transaction_date=from_dt_str, to_transaction_date=to_dt_str, page_size=cfg['ramp'].get('page_size', 200), has_no_sync_commits=True)
 
                 if not reims:
                     st.info('No reimbursements found for the specified period.')
@@ -168,9 +168,10 @@ def render_reimbursements_tab(cfg, env):
                 if skipped:
                     st.info(f"Skipped {skipped} reimbursements already marked synced in Ramp")
 
-                # Additional date filtering (prefer 'paid_at', 'posted_at', then 'created_at')
+                # Additional date filtering: use transaction_date (expense date) as the primary
+                # filter field, matching what the API filter targets.
                 def _reim_date_str(r):
-                    for k in ('paid_at', 'posted_at', 'created_at'):
+                    for k in ('transaction_date', 'paid_at', 'posted_at', 'created_at'):
                         v = r.get(k)
                         if v:
                             return v[:10]

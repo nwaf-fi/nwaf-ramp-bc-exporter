@@ -203,11 +203,20 @@ class RampClient:
         return all_bills
 
     def get_reimbursements(self, status: Optional[str] = None,
-                          start_date: Optional[str] = None, end_date: Optional[str] = None,
+                          from_transaction_date: Optional[str] = None,
+                          to_transaction_date: Optional[str] = None,
                           page_size: int = 200, **extra_params) -> List[Dict]:
         """Fetch reimbursements from Ramp API. Accepts extra query parameters such as
-        `has_no_sync_commits=True` to only return reimbursements not yet synced."""
-        return self._get_paginated_data("reimbursements", status, start_date, end_date, page_size, **extra_params)
+        `has_no_sync_commits=True` to only return reimbursements not yet synced.
+
+        `from_transaction_date` / `to_transaction_date` should be ISO 8601 datetime
+        strings (e.g. '2026-02-01T00:00:00Z') and map to the Ramp API filter fields
+        of the same name."""
+        if from_transaction_date:
+            extra_params['from_transaction_date'] = from_transaction_date
+        if to_transaction_date:
+            extra_params['to_transaction_date'] = to_transaction_date
+        return self._get_paginated_data("reimbursements", status, None, None, page_size, **extra_params)
 
     def get_cashbacks(self, status: Optional[str] = None,
                       start_date: Optional[str] = None, end_date: Optional[str] = None,
@@ -709,6 +718,11 @@ class RampClient:
                 params["start_date"] = extra_params.pop('from_issued_date')
             if 'to_issued_date' in extra_params:
                 params["end_date"] = extra_params.pop('to_issued_date')
+            # Handle reimbursement transaction date filters (passed through as-is)
+            if 'from_transaction_date' in extra_params:
+                params['from_transaction_date'] = extra_params.pop('from_transaction_date')
+            if 'to_transaction_date' in extra_params:
+                params['to_transaction_date'] = extra_params.pop('to_transaction_date')
             
             for k, v in extra_params.items():
                 # Convert booleans to lowercase strings which Ramp API expects
