@@ -319,42 +319,43 @@ def ramp_reimbursements_to_bc_rows(reimbursements: List[Dict[str, Any]], cfg: Di
     Converts Ramp reimbursements into Business Central journal entries using an
     A/P clearing workflow.
 
-    Two-pass approach:
-      Pass 1 – detail lines (one per line item):
-        Dr  Expense G/L account (employee-coded)
-        Cr  A/P clearing account  (via Bal. Account No.)
+    Two independent passes, each with its own period filter:
 
-      Pass 2 – clearing/payment lines grouped by (employee_name, payment_date):
+      Pass 1 – Expense/detail lines, filtered by transaction_date:
+        Dr  Expense G/L account  (employee-coded)
+        Cr  A/P clearing account (via Bal. Account No.)
+        Posting Date = transaction_date
+        Document No. = REIMB-{reimbursement_id}
+        Included when: transaction_date falls within the target period.
+        Reimbursements with no payment_processed_at ARE included — liability
+        is recognized when the expense occurred, not when it was paid.
+
+      Pass 2 – Clearing/payment lines, filtered by payment_processed_at:
         Dr  A/P clearing account
         Cr  Northern Trust bank  (via Bal. Account No.)
-        Amount = sum of all detail line amounts for that employee + date group.
+        Posting Date = payment_processed_at date
+        Document No. = payment_batch_id (groups all reimbursements paid in the
+                        same bank transaction under one clearing line)
+        Included when: payment_processed_at falls within the target period.
+        These lines are independent of Pass 1 — a February run will pick up
+        payments for January expenses, and that is intentional.
+        Reimbursements with no payment_processed_at are skipped in Pass 2.
+
+    The two passes are run over the full reimbursements list independently.
+    A single reimbursement may appear in Pass 1 only (unpaid), Pass 2 only
+    (paid in this period but expensed in a prior period), or both (same period).
 
     Config keys read from cfg['business_central']:
       ap_account / ap_clearing_account  – A/P liability / clearing G/L account
       bank_account                       – Northern Trust bank G/L account
       template_name, batch_name         – passed through to BC columns
 
-    Optional period filtering (filters on payment_processed_at):
+    Optional period filtering:
       cfg['period'] = {'start': 'YYYY-MM-DD', 'end': 'YYYY-MM-DD'}
       OR cfg['target_month'] = 'YYYY-MM'
-    When a period filter is active, reimbursements without payment_processed_at
-    are skipped (they cannot be classified into a month).
-
-    Document No. patterns:
-      Detail lines  : REIMB-{reimbursement_id}
-      Clearing lines: REIMB-{employee_slug}-{YYYYMMDD}-CLR
-
-    Acceptance tests (inline assertions at bottom of function):
-      1. One reimbursement, 5 line items for Employee A on 2026-02-10
-         → 5 detail lines + 1 clearing line
-      2. Two reimbursements for Employee A on the same payment date
-         → still only 1 clearing line for that date+employee
-      3. Same employee, two different payment dates in same month
-         → one clearing line per payment date
-      4. Month filter Feb 2026 excludes items with payment_processed_at outside Feb 2026
     """
     from decimal import Decimal, ROUND_HALF_UP
-    import re
+    import re, calendar
 
     if not reimbursements:
         print("No reimbursements provided for transformation.")
@@ -368,34 +369,30 @@ def ramp_reimbursements_to_bc_rows(reimbursements: List[Dict[str, Any]], cfg: Di
     template_name = bc_cfg.get('template_name', 'GENERAL')
     batch_name = bc_cfg.get('batch_name', 'RAMP_REIMB')
 
-    # --- Resolve optional period filter ---
+    # -------------------------------------------------------------------------
+    # Resolve period filter
+    # -------------------------------------------------------------------------
     filter_start: str | None = None
     filter_end: str | None = None
     period_cfg = cfg.get('period')
     target_month = cfg.get('target_month')
+
     if period_cfg and isinstance(period_cfg, dict):
         filter_start = period_cfg.get('start')
         filter_end = period_cfg.get('end')
     elif target_month:
-        # e.g. '2026-02' → start=2026-02-01, end=2026-02-28
         try:
             ym = datetime.strptime(target_month, '%Y-%m')
-            import calendar
             last_day = calendar.monthrange(ym.year, ym.month)[1]
             filter_start = ym.strftime('%Y-%m-01')
             filter_end = f"{ym.year:04d}-{ym.month:02d}-{last_day:02d}"
         except ValueError:
             print(f"⚠️ Warning: Invalid target_month '{target_month}'. Period filter ignored.")
+
     period_active = bool(filter_start and filter_end)
 
     def _in_period(date_str: str) -> bool:
-        """Return True if date_str (YYYY-MM-DD) falls within [filter_start, filter_end]."""
         return filter_start <= date_str <= filter_end  # type: ignore[operator]
-
-    def _slugify(name: str) -> str:
-        """Convert employee name to a safe document-number slug."""
-        slug = re.sub(r'[^A-Za-z0-9]+', '-', name).strip('-').upper()
-        return slug[:20]  # keep doc numbers manageable
 
     def _parse_amount(amount_obj) -> Decimal:
         if isinstance(amount_obj, dict):
@@ -405,90 +402,86 @@ def ramp_reimbursements_to_bc_rows(reimbursements: List[Dict[str, Any]], cfg: Di
         return Decimal(str(amount_obj)) if amount_obj else Decimal('0')
 
     def _fmt_date(date_iso10: str) -> str:
-        """Format YYYY-MM-DD to MM/DD/YYYY for BC."""
         try:
             return datetime.strptime(date_iso10, '%Y-%m-%d').strftime('%m/%d/%Y')
         except Exception:
             return datetime.now().strftime('%m/%d/%Y')
 
-    print(f"--- Transforming {len(reimbursements)} reimbursements (A/P clearing workflow) ---")
+    def _extract_coding(line_item: dict) -> tuple[str | None, str, str]:
+        """Return (gl_account, department_code, activity_code) from a line item."""
+        gl_account = None
+        department_code = ''
+        activity_code = ''
+        for selection in line_item.get('accounting_field_selections', []):
+            sel_type = selection.get('type')
+            if sel_type == 'GL_ACCOUNT':
+                gl_account = str(selection.get('external_code', '')).strip() or None
+            elif sel_type == 'OTHER':
+                ext_id = (selection.get('category_info') or {}).get('external_id')
+                if ext_id == 'Department':
+                    department_code = str(selection.get('external_code', '')).strip()
+                elif ext_id == 'Activity Code':
+                    activity_code = str(selection.get('external_code', '')).strip()
+        return gl_account, department_code, activity_code
 
+    print(f"--- Transforming {len(reimbursements)} reimbursements (A/P clearing workflow) ---")
+    if period_active:
+        print(f"    Expense period (Pass 1): transaction_date in [{filter_start}, {filter_end}]")
+        print(f"    Payment period (Pass 2): payment_processed_at in [{filter_start}, {filter_end}]")
+
+    # =========================================================================
+    # PASS 1 — Expense / detail lines (filtered by transaction_date)
+    # =========================================================================
     detail_lines: list = []
-    # Clearing accumulator keyed by (employee_name, payment_date_iso10)
-    # value: {'total': Decimal, 'dept': str, 'activity': str}
-    clearing_groups: Dict[tuple, dict] = {}
 
     for index, reimbursement in enumerate(reimbursements):
         doc_no = f"REIMB-{reimbursement.get('id', index)}"
         employee_name = reimbursement.get('user_full_name') or 'Unknown Employee'
 
-        # --- Resolve payment date (payment_processed_at drives period filter + clearing line) ---
-        payment_processed_at = reimbursement.get('payment_processed_at') or ''
-        payment_date_iso = payment_processed_at[:10] if payment_processed_at else ''
+        transaction_date_raw = reimbursement.get('transaction_date') or ''
+        transaction_date_iso = transaction_date_raw[:10] if transaction_date_raw else ''
 
-        if not payment_date_iso:
-            if period_active:
-                print(f"⚠️ Skipping {doc_no}: no payment_processed_at and period filter is active.")
-                continue
-            # Fallback to created_at when no period filter
-            created_at = reimbursement.get('created_at') or ''
-            payment_date_iso = created_at[:10] if created_at else datetime.now().strftime('%Y-%m-%d')
+        if not transaction_date_iso:
+            # Fall back to accounting_date, then created_at
+            for fallback_field in ('accounting_date', 'created_at'):
+                raw = reimbursement.get(fallback_field) or ''
+                if raw:
+                    transaction_date_iso = raw[:10]
+                    break
+            if not transaction_date_iso:
+                transaction_date_iso = datetime.now().strftime('%Y-%m-%d')
 
-        if period_active and not _in_period(payment_date_iso):
-            # Outside requested period – silently skip
+        # Apply period filter to transaction_date
+        if period_active and not _in_period(transaction_date_iso):
             continue
 
-        payment_date_str = _fmt_date(payment_date_iso)  # used for clearing line
-
-        # transaction_date drives the expense/detail line posting date
-        transaction_date_raw = reimbursement.get('transaction_date') or ''
-        transaction_date_iso = transaction_date_raw[:10] if transaction_date_raw else payment_date_iso
         transaction_date_str = _fmt_date(transaction_date_iso)
+        description = reimbursement.get('memo') or f"Reimbursement – {employee_name}"
 
-        # --- Line items ---
         line_items = reimbursement.get('line_items', [])
         if not line_items:
-            print(f"⚠️ Warning: Reimbursement {doc_no} has no line items. Skipping.")
+            print(f"⚠️ Warning: {doc_no} has no line items. Skipping.")
             continue
 
         for line_index, line_item in enumerate(line_items):
             amount = _parse_amount(line_item.get('amount', {}))
+            gl_account, department_code, activity_code = _extract_coding(line_item)
 
-            description = reimbursement.get('memo') or f"Reimbursement for {employee_name}"
-
-            # Extract accounting dimensions from line item
-            gl_account: str | None = None
-            department_code = ''
-            activity_code = ''
-
-            for selection in line_item.get('accounting_field_selections', []):
-                sel_type = selection.get('type')
-                if sel_type == 'GL_ACCOUNT':
-                    gl_account = str(selection.get('external_code', '')).strip()
-                elif sel_type == 'OTHER':
-                    ext_id = (selection.get('category_info') or {}).get('external_id')
-                    if ext_id == 'Department':
-                        department_code = str(selection.get('external_code', '')).strip()
-                    elif ext_id == 'Activity Code':
-                        activity_code = str(selection.get('external_code', '')).strip()
-
-            if not gl_account or gl_account in ('None', 'null', ''):
+            if not gl_account:
                 print(
-                    f"⚠️ Warning: Reimbursement line {line_index} in {doc_no} "
-                    f"is missing a G/L Account code. Skipping line item."
+                    f"⚠️ Warning: {doc_no} line {line_index} has no G/L Account. Skipping line."
                 )
                 continue
 
-            # Detail line: Dr Expense / Cr A/P (via Bal. Account)
             detail_lines.append({
                 'Journal Template Name': template_name,
                 'Journal Batch Name': batch_name,
-                'Posting Date': transaction_date_str,  # expense date = transaction_date
+                'Posting Date': transaction_date_str,
                 'Document Date': transaction_date_str,
                 'Document Type': 'Invoice',
                 'Document No.': doc_no,
                 'Account Type': 'G/L Account',
-                'Account No.': str(gl_account),
+                'Account No.': gl_account,
                 'Description': description,
                 'Debit Amount': float(amount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)),
                 'Credit Amount': 0.0,
@@ -498,31 +491,76 @@ def ramp_reimbursements_to_bc_rows(reimbursements: List[Dict[str, Any]], cfg: Di
                 'Activity Code': activity_code or '00',
             })
 
-            # Accumulate into clearing group
-            group_key = (employee_name, payment_date_iso)
-            if group_key not in clearing_groups:
-                clearing_groups[group_key] = {
+    # =========================================================================
+    # PASS 2 — Clearing / payment lines (filtered by payment_processed_at)
+    # Grouped by payment_batch_id — one clearing line per bank payment batch.
+    # Document No. = payment_batch_id so it ties directly to the bank statement.
+    # =========================================================================
+
+    # clearing_batches keyed by payment_batch_id
+    # value: {'total', 'payment_date_iso', 'payment_id', 'employee_names': set,
+    #         'dept', 'activity'}
+    clearing_batches: Dict[str, dict] = {}
+
+    for reimbursement in reimbursements:
+        payment_processed_at = reimbursement.get('payment_processed_at') or ''
+        payment_date_iso = payment_processed_at[:10] if payment_processed_at else ''
+
+        # Skip unpaid reimbursements entirely in Pass 2
+        if not payment_date_iso:
+            continue
+
+        # Apply period filter to payment date
+        if period_active and not _in_period(payment_date_iso):
+            continue
+
+        payment_batch_id = reimbursement.get('payment_batch_id') or ''
+        if not payment_batch_id:
+            # No batch ID — treat each reimbursement as its own payment
+            # (edge case; use reimbursement id as a stable fallback key)
+            payment_batch_id = f"SOLO-{reimbursement.get('id', '')}"
+
+        employee_name = reimbursement.get('user_full_name') or 'Unknown Employee'
+        payment_id = reimbursement.get('payment_id') or ''
+
+        line_items = reimbursement.get('line_items', [])
+        for line_item in line_items:
+            amount = _parse_amount(line_item.get('amount', {}))
+            gl_account, department_code, activity_code = _extract_coding(line_item)
+
+            if not gl_account:
+                continue  # already warned in Pass 1
+
+            if payment_batch_id not in clearing_batches:
+                clearing_batches[payment_batch_id] = {
                     'total': Decimal('0'),
+                    'payment_date_iso': payment_date_iso,
+                    'payment_id': payment_id,
+                    'employee_names': set(),
                     'dept': department_code or '000',
                     'activity': activity_code or '00',
                 }
-            clearing_groups[group_key]['total'] += amount
-            # Keep first non-default dept/activity encountered for the group
-            if not clearing_groups[group_key]['dept'] or clearing_groups[group_key]['dept'] == '000':
-                if department_code:
-                    clearing_groups[group_key]['dept'] = department_code
-            if not clearing_groups[group_key]['activity'] or clearing_groups[group_key]['activity'] == '00':
-                if activity_code:
-                    clearing_groups[group_key]['activity'] = activity_code
 
-    # --- Pass 2: emit one clearing (payment) line per (employee, payment_date) group ---
+            batch = clearing_batches[payment_batch_id]
+            batch['total'] += amount
+            batch['employee_names'].add(employee_name)
+
+            # Prefer first non-default dept/activity seen in the batch
+            if (not batch['dept'] or batch['dept'] == '000') and department_code:
+                batch['dept'] = department_code
+            if (not batch['activity'] or batch['activity'] == '00') and activity_code:
+                batch['activity'] = activity_code
+
     clearing_lines: list = []
-    for (employee_name, payment_date_iso), grp in clearing_groups.items():
-        group_total = grp['total'].quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        payment_date_str = _fmt_date(payment_date_iso)
-        slug = _slugify(employee_name)
-        date_compact = payment_date_iso.replace('-', '')
-        clr_doc_no = f"REIMB-{slug}-{date_compact}-CLR"
+    for payment_batch_id, batch in clearing_batches.items():
+        group_total = batch['total'].quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        payment_date_str = _fmt_date(batch['payment_date_iso'])
+        names = ', '.join(sorted(batch['employee_names']))
+        payment_id_ref = f" (Ref: {batch['payment_id']})" if batch['payment_id'] else ''
+        description = f"Reimbursement payment – {names}{payment_id_ref}"
+
+        # Document No. is the payment_batch_id — ties directly to the bank statement
+        doc_no = payment_batch_id
 
         clearing_lines.append({
             'Journal Template Name': template_name,
@@ -530,23 +568,26 @@ def ramp_reimbursements_to_bc_rows(reimbursements: List[Dict[str, Any]], cfg: Di
             'Posting Date': payment_date_str,
             'Document Date': payment_date_str,
             'Document Type': 'Payment',
-            'Document No.': clr_doc_no,
+            'Document No.': doc_no,
             'Account Type': 'G/L Account',
             'Account No.': ap_account,
-            'Description': f"Reimbursement payment – {employee_name}",
+            'Description': description,
             'Debit Amount': float(group_total),
             'Credit Amount': 0.0,
             'Bal. Account Type': 'G/L Account',
             'Bal. Account No.': bank_account,
-            'Department Code': grp['dept'],
-            'Activity Code': grp['activity'],
+            'Department Code': batch['dept'],
+            'Activity Code': batch['activity'],
         })
 
     all_lines = detail_lines + clearing_lines
     df_output = pd.DataFrame(all_lines)
     if df_output.empty:
-        print("No valid reimbursements found with G/L account codes. Returning empty DataFrame.")
+        print("No valid lines produced. Returning empty DataFrame.")
         return pd.DataFrame(columns=BC_COLUMN_ORDER)
+
+    print(f"✓ Pass 1: {len(detail_lines)} expense detail lines")
+    print(f"✓ Pass 2: {len(clearing_lines)} clearing lines ({len(clearing_batches)} payment batches)")
     return df_output[BC_COLUMN_ORDER]
 
 
