@@ -362,7 +362,7 @@ def ramp_reimbursements_to_bc_rows(reimbursements: List[Dict[str, Any]], cfg: Di
 
     bc_cfg = cfg.get('business_central', {})
     ap_account = str(
-        bc_cfg.get('ap_account') or bc_cfg.get('ap_clearing_account', '20000')
+        bc_cfg.get('ap_account') or bc_cfg.get('ap_clearing_account', '26000')
     )
     bank_account = str(bc_cfg.get('bank_account', 'NT'))
     template_name = bc_cfg.get('template_name', 'GENERAL')
@@ -420,9 +420,9 @@ def ramp_reimbursements_to_bc_rows(reimbursements: List[Dict[str, Any]], cfg: Di
 
     for index, reimbursement in enumerate(reimbursements):
         doc_no = f"REIMB-{reimbursement.get('id', index)}"
-        employee_name = (reimbursement.get('user') or {}).get('name') or 'Unknown Employee'
+        employee_name = reimbursement.get('user_full_name') or 'Unknown Employee'
 
-        # --- Resolve payment date ---
+        # --- Resolve payment date (payment_processed_at drives period filter + clearing line) ---
         payment_processed_at = reimbursement.get('payment_processed_at') or ''
         payment_date_iso = payment_processed_at[:10] if payment_processed_at else ''
 
@@ -438,7 +438,12 @@ def ramp_reimbursements_to_bc_rows(reimbursements: List[Dict[str, Any]], cfg: Di
             # Outside requested period – silently skip
             continue
 
-        payment_date_str = _fmt_date(payment_date_iso)
+        payment_date_str = _fmt_date(payment_date_iso)  # used for clearing line
+
+        # transaction_date drives the expense/detail line posting date
+        transaction_date_raw = reimbursement.get('transaction_date') or ''
+        transaction_date_iso = transaction_date_raw[:10] if transaction_date_raw else payment_date_iso
+        transaction_date_str = _fmt_date(transaction_date_iso)
 
         # --- Line items ---
         line_items = reimbursement.get('line_items', [])
@@ -478,8 +483,8 @@ def ramp_reimbursements_to_bc_rows(reimbursements: List[Dict[str, Any]], cfg: Di
             detail_lines.append({
                 'Journal Template Name': template_name,
                 'Journal Batch Name': batch_name,
-                'Posting Date': payment_date_str,
-                'Document Date': payment_date_str,
+                'Posting Date': transaction_date_str,  # expense date = transaction_date
+                'Document Date': transaction_date_str,
                 'Document Type': 'Invoice',
                 'Document No.': doc_no,
                 'Account Type': 'G/L Account',
