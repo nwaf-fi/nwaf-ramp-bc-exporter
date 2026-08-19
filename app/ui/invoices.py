@@ -372,7 +372,8 @@ def render_invoices_tab(cfg, env):
                                     payload_used = info.get('payload') if isinstance(info, dict) else None
                                     response_body = info.get('response') if isinstance(info, dict) else info
                                     http_status = info.get('status', '') if isinstance(info, dict) else ''
-                                    with st.expander(f"🔍 API detail: {label}", expanded=not ok):
+                                    with st.container():
+                                        st.write(f"**🔍 API detail: {label}**")
                                         st.write(f"**Endpoint:** `POST {endpoint_used}`")
                                         if payload_used:
                                             st.write("**Request payload:**")
